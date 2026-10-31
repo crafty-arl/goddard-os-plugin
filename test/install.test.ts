@@ -312,3 +312,33 @@ test("Pick up never shows another owner's goal suggestions", async () => {
   const ideas = (await (await app('/door/api/session/ideas')).json()).ideas ?? []
   expect(ideas.filter((i: { from: string }) => i.from === 'goals')).toEqual([])
 }, 20_000)
+
+describe('the dog computer: a browser on this Mac', () => {
+  const mcpFor = async (words: string) => {
+    void post('/door/api/session/start', { artifact: words, mode: 'talk' }).catch(() => {})
+    for (let i = 0; i < 40; i++) {
+      const cmd = readdirSync(join(STATE, 'launch')).filter(f => f.endsWith('.command')).find(f => readFileSync(join(STATE, 'launch', f), 'utf8').includes(words))
+      if (cmd) return JSON.parse(readFileSync(join(STATE, 'launch', cmd.replace('.command', '-mcp.json')), 'utf8')).mcpServers
+      await sleep(250)
+    }
+    throw new Error('no launch')
+  }
+  const setComputer = async (dogComputer: unknown) => {
+    writeFileSync(join(STATE, 'profile.json'), JSON.stringify({ owner: { name: 'Dana', call: 'chief' }, memory: { on: true, path: NOTES }, dogComputer }))
+    await sleep(10_500) // the door reads the profile again after 10 seconds
+  }
+  test('with it on, each dog gets its own isolated browser', async () => {
+    await setComputer({ on: true, kind: 'this-mac', slots: 3 })
+    const s = await mcpFor('heron browse something')
+    expect(s.browser.command).toBe('npx'); expect(s.browser.args).toContain('--isolated'); expect(s.browser.args.join(' ')).toMatch(/@playwright\/mcp@\d/)
+    expect(s['gm-chat']).toBeTruthy()
+  }, 30_000)
+  test('with it off, no browser is added', async () => {
+    await setComputer({ on: false, kind: 'this-mac', slots: 3 })
+    expect((await mcpFor('egret no browser')).browser).toBeUndefined()
+  }, 30_000)
+  test('Setup\'s test says what is true about Chrome on this Mac', async () => {
+    const r = await (await post('/door/api/profile/test', { part: 'dogComputer', value: { kind: 'this-mac' } })).json()
+    expect(r.said).toMatch(existsSync('/Applications/Google Chrome.app') ? /own Chrome window/ : /isn't installed/)
+  })
+})

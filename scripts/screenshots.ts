@@ -56,7 +56,7 @@ await tap('Next'); await page.getByRole('radio', { name: /From anywhere/ }).clic
 await page.locator('.setup-field input').first().fill('dana-box.example.ts.net')
 await shot('2-setup-phone')
 await tap('Next'); await shot('3-setup-dogs')
-await tap('Next'); await page.getByRole('radio', { name: /A browser on this Mac/ }).click(); await tap('Test it'); await page.getByText('The dogs will use').waitFor()
+await tap('Next'); await page.getByRole('radio', { name: /A browser on this Mac/ }).click(); await tap('Test it'); await page.getByText('Each dog gets its own').waitFor()
 await shot('4-setup-dog-computer')
 await tap('Next'); await shot('5-setup-pings')
 await tap('Next'); await shot('6-setup-more')

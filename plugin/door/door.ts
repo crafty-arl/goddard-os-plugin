@@ -166,7 +166,9 @@ async function testPart(part: string, v: Record<string, string>): Promise<{ ok: 
     return existsSync(path) ? { ok: true, said: `Found ${v.path}.` } : { ok: false, said: `${v.path || 'That folder'} isn't on this Mac${part === 'bigDrive' ? ' right now (is the drive plugged in?)' : ''}.` }
   }
   if (part === 'dogComputer') {
-    if (v.kind === 'this-mac') return { ok: true, said: 'The dogs will use a browser on this Mac.' }
+    if (v.kind === 'this-mac') return !Bun.which('npx') ? { ok: false, said: 'The browser needs Node (npx). Install it from nodejs.org.' }
+      : !hasChrome() ? { ok: false, said: 'The dogs drive Google Chrome, and it isn\'t installed. Get it from google.com/chrome, then test again.' }
+      : { ok: true, said: 'Each dog gets its own Chrome window on this Mac, apart from your own Chrome. The first one takes a minute to set up.' }
     if (!/^[\w.-]+@[\w.-]+$/.test(String(v.host ?? ''))) return { ok: false, said: 'The host should look like user@address.' }
     const r = await run(['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', String(v.host), 'test -x /root/dogbox.sh && /root/dogbox.sh status || echo reachable'], 20_000)
     return r.code === 0 ? { ok: true, said: `Reached ${v.host}: ${r.out.split('\n')[0].slice(0, 120)}` } : { ok: false, said: `Couldn't reach ${v.host} over SSH with this Mac's key.` }
@@ -351,12 +353,22 @@ function sessionIdFor(name: string, board: SessionBoard, folder: string): string
   } catch {}
 }
 
+// "A browser on this Mac" (Setup step 4): each dog gets its own browser window on this Mac through Playwright's tool
+// server (navigate, click, type, read the page, screenshot). Isolated: each session starts clean and never touches the
+// owner's own browser profile, and two dogs can browse at once. It drives Google Chrome, which has to be installed.
+const PLAYWRIGHT_MCP = '@playwright/mcp@0.0.83'
+const hasChrome = () => existsSync('/Applications/Google Chrome.app') || existsSync(join(homedir(), 'Applications', 'Google Chrome.app'))
+function macBrowser(): Record<string, { command: string; args: string[] }> {
+  const dc = profile().dogComputer
+  if (!dc?.on || dc.kind !== 'this-mac') return {}
+  return { browser: { command: 'npx', args: ['-y', PLAYWRIGHT_MCP, '--isolated'] } }
+}
 async function launch(port: number, { dir, name, env, args, bg }: Launch, resume?: { id: string }): Promise<string> {
   // every key set every time: a background session can start from a pre-warmed process that still carries another
   // dog's environment, so a key left out could leak in from it (Home once showed a slot's first message)
-  const all = { GM_CHAT_FIRST: '', GM_CHAT_AUTO_UNTIL: '', GM_CHAT_MODE: '', GM_CHAT_HOME: '', GM_CHAT_BG: '', GM_CHAT_PORT: String(port), GM_CHAT_NAME: name, ...env, ...(bg ? { GM_CHAT_BG: '1' } : {}) }
+  const all = { GM_CHAT_FIRST: '', GM_CHAT_AUTO_UNTIL: '', GM_CHAT_MODE: '', GM_CHAT_HOME: '', GM_CHAT_BG: '', GM_CHAT_PORT: String(port), GM_CHAT_NAME: name, ...(process.env.GM_CHAT_STATE ? { GM_CHAT_STATE: process.env.GM_CHAT_STATE } : {}), ...env, ...(bg ? { GM_CHAT_BG: '1' } : {}) }
   const mcp = join(LAUNCH_DIR, `${port}-mcp.json`)
-  writeFileSync(mcp, JSON.stringify({ mcpServers: { 'gm-chat': { command: 'bun', args: [join(HERE, 'server.ts')], env: all } } }, null, 2), { mode: 0o600 })
+  writeFileSync(mcp, JSON.stringify({ mcpServers: { 'gm-chat': { command: 'bun', args: [join(HERE, 'server.ts')], env: all }, ...macBrowser() } }, null, 2), { mode: 0o600 })
   // one hooks file per dog, with its port written in: a background session can run in a pre-warmed process whose
   // environment belongs to another dog, so GM_CHAT_PORT can't be trusted there (Home's steps once went to Scribbles)
   const hooks = join(LAUNCH_DIR, `${port}-hooks.json`)

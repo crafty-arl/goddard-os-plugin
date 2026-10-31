@@ -108,7 +108,8 @@ you say yes.
 Choose where the dogs can use a computer:
 
 - **None:** the dogs work with files and links only.
-- **A browser on this Mac:** the dogs open pages on this Mac.
+- **A browser on this Mac:** each dog gets its own Chrome window to open pages, click, type and read them, kept apart
+  from your own Chrome and its logins. Needs Google Chrome installed.
 - **A VM on a home server:** the dogs get their own computer with its own screen, one per chat. This needs a Proxmox
   box: type the server as `user@address`, the VM's address, and how many screens can run at once.
 
