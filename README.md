@@ -25,6 +25,30 @@ The first start installs what it needs, signs this Mac's browser in, and opens S
 phone, your dogs, a dog computer, pings, more connections). Every step after the first can be skipped. Nothing starts
 a Claude session until Setup is saved.
 
+### Using the Claude desktop app?
+
+The `/plugin` commands only work in Claude Code in a terminal, so they won't pop up in the desktop app. Use Terminal
+instead (open it from Spotlight). Paste these one at a time:
+
+1. Install Claude Code's command line. Goddard OS's helpers run on it, even if you chat in the desktop app:
+   ```
+   curl -fsSL https://claude.ai/install.sh | bash
+   ```
+2. Run `claude` once, sign in with your Claude account, then type `/exit`.
+3. Add and install the plugin:
+   ```
+   claude plugin marketplace add crafty-arl/goddard-os-plugin
+   ```
+   ```
+   claude plugin install goddard-os@goddard-os
+   ```
+4. Start it. Your browser opens on Setup:
+   ```
+   bash ~/.claude/plugins/marketplaces/goddard-os/plugin/bin/goddard.sh start
+   ```
+
+Use the same line with `stop` at the end to stop it, and run it again after the Mac restarts.
+
 **Full walkthrough:** [docs/SETUP.md](docs/SETUP.md) covers every Setup step, getting your phone in, passkeys, pings,
 and what to do when something goes wrong.
 

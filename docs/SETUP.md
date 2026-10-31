@@ -8,7 +8,7 @@ required; you can come back to the rest any time from **More → Setup**.
 You need:
 
 - **A Mac.** Goddard OS runs on your Mac and your phone opens it in the browser.
-- **Claude Code on a paid Claude plan.** Each helper ("dog") is its own Claude Code session running in the background,
+- **Claude Code on a paid Claude plan** (the command-line version; see below if you use the desktop app). Each helper ("dog") is its own Claude Code session running in the background,
   and they use up your plan's limits fast.
 - **Bun:** paste `curl -fsSL https://bun.sh/install | bash` into Terminal.
 - **Node:** install it from [nodejs.org](https://nodejs.org).
@@ -31,6 +31,31 @@ The last one checks that Claude Code, Bun and Node are there and tells you exact
 installs what it needs, starts Goddard OS, and opens your browser already signed in, on Setup.
 
 Nothing starts a Claude session until you save Setup.
+
+### Using the Claude desktop app?
+
+The `/plugin` commands only work in Claude Code in a terminal, so they won't pop up in the desktop app. Use Terminal
+instead (open it from Spotlight). Paste these one at a time:
+
+1. Install Claude Code's command line. Goddard OS's helpers run on it, even if you chat in the desktop app:
+   ```
+   curl -fsSL https://claude.ai/install.sh | bash
+   ```
+2. Run `claude` once, sign in with your Claude account, then type `/exit`.
+3. Add and install the plugin:
+   ```
+   claude plugin marketplace add crafty-arl/goddard-os-plugin
+   ```
+   ```
+   claude plugin install goddard-os@goddard-os
+   ```
+4. Start it. Your browser opens on Setup:
+   ```
+   bash ~/.claude/plugins/marketplaces/goddard-os/plugin/bin/goddard.sh start
+   ```
+
+Use the same line with `stop` at the end to stop it, and run it again after the Mac restarts.
+
 
 ## 2. Setup, step by step
 
