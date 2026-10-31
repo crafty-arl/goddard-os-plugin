@@ -21,7 +21,7 @@ case "${1:-start}" in
     command -v bun >/dev/null || { echo "✕ Bun is missing. Install it: curl -fsSL https://bun.sh/install | bash"; exit 1; }
     command -v node >/dev/null || { echo "✕ Node is missing (the app is built with it). Install it from nodejs.org."; exit 1; }
     if ! is_app && [ -n "$(listening "$APP_PORT")" ]; then
-      echo "✕ Another app is using port $APP_PORT. Stop it, or pick another port: GODDARD_APP_PORT=5180"; exit 1
+      echo "✕ Another app is using port $APP_PORT (often another project's dev server). Close it, then run /goddard-os:start again."; exit 1
     fi
     if [ ! -d "$ROOT/door/node_modules" ]; then echo "Installing the door…"; (cd "$ROOT/door" && bun install --no-summary >>"$LOG" 2>&1) || { echo "✕ Couldn't install the door. See $LOG"; exit 1; }; fi
     if [ ! -d "$ROOT/app/node_modules" ]; then echo "Installing the app…"; (cd "$ROOT/app" && bun install --no-summary >>"$LOG" 2>&1) || { echo "✕ Couldn't install the app. See $LOG"; exit 1; }; fi

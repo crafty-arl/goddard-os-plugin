@@ -175,7 +175,7 @@ list can get in, and removing a device signs it out at once.
 | `✕ Bun is missing` (or Node, or Claude Code) | Install what it names, then run `/goddard-os:start` again. |
 | The **Locked** screen on the Mac | Run `/goddard-os:start` again. It signs this Mac's browser in. |
 | "Goddard is waking up…" for more than two minutes | Do the one-time trust step above (Home shows the exact line). |
-| `✕ Another app is using port 5173` | Stop that app, or start on another port: `GODDARD_APP_PORT=5180` before the start command. |
+| `✕ Another app is using port 5173` | Close that app (often another project's dev server), then run `/goddard-os:start` again. |
 | "Blocked request" on your phone | Use the Mac's IP address, not its name. For an https address, put it in Setup step 2 and restart. |
 | Setup's **Test it** shows ✕ | It says what's wrong in plain words, such as "The host should look like user@address." Fix that and test again. |
 | The app didn't start | Look in `~/Library/Logs/goddard-os.log`. |
