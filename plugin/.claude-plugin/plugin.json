@@ -2,5 +2,8 @@
   "name": "goddard-os",
   "version": "0.1.0",
   "description": "A calm phone home for your Claude Code background sessions. Run /goddard-os:start, then finish Setup in the browser.",
-  "author": { "name": "GM! Carl" }
+  "author": {
+    "name": "GM! Carl"
+  },
+  "license": "MIT"
 }

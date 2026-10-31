@@ -34,3 +34,7 @@ a Claude session until Setup is saved.
 ## For the maintainer
 
 `./bundle.sh` copies the app and the door into `plugin/` from their repos (tracked files only).
+
+## License
+
+MIT. See LICENSE.
