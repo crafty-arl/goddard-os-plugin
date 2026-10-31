@@ -128,14 +128,16 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
   if (showScreen) {
     const done = b?.done ?? [], met = done.filter(d => d.met).length
     const left = thread.auto ? Math.max(0, Math.round((thread.auto.until - Date.now()) / 60000)) : null
-    const doing = live.busy.on ? STEP_PLAIN(live.busy.text ?? thread.doing ?? 'Thinking it over') : 'Waiting for you'
+    const doing = live.busy.on ? plainStep(live.busy.text ?? thread.doing ?? 'Thinking it over') : 'Waiting for you'
+    // what the dog did since Carl last spoke, newest first, in plain words (the mock's step trail)
+    const trail = live.steps.filter(st => st.ts >= lastMine).slice(live.busy.on ? -6 : -5, live.busy.on ? -1 : undefined).reverse() // while working, the newest is the line above
     return (
       <section className={'scv' + (bare ? ' bare' : '') + (typing ? ' driving' : '')} aria-label={`Session: ${sessionTitle(thread)}, on the dog computer`}>
         {/* zone 1: the HUD */}
         <header className="scv-hud">
           <button className="scv-p" onClick={() => setScreen(false)} aria-label="Back to the chat view">←</button>
           <b className="scv-title">{sessionTitle(thread)}</b>
-          <span className="scv-p"><i className={'scv-dot' + (live.busy.on ? ' live' : '')} aria-hidden="true" />Goddard · {live.busy.on ? 'live' : 'idle'}</span>
+          <span className="scv-p"><i className={'scv-dot' + (live.busy.on ? ' live' : '')} aria-hidden="true" />{live.busy.on ? 'Live' : 'Idle'}{thread.slot ? ` · screen ${thread.slot}` : ''}</span>
           <span className="scv-grow" />
           {b && <button className="scv-p" onClick={() => { setScreen(false); setDrawer(true) }} aria-label="Open the plan">
             <span className="scv-bars" aria-hidden="true">{b.phases.map((_, i) => <i key={i} className={i < b.now ? 'd' : i === b.now ? 'n' : ''} />)}</span>
@@ -143,16 +145,18 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
           {b && <span className="scv-p"><span className="scv-ok">{met}/{done.length || 1}</span> done</span>}
           {left !== null && <span className="scv-p scv-gold">Auto · {left} min</span>}
           <button className={'scv-p' + (typing ? ' on' : '')} onClick={() => { setTyping(t => !t); setKeyErr('') }} aria-pressed={typing}>Keyboard</button>
-          <button className="scv-p" onClick={() => setBare(true)}>Hide</button>
+          <button className="scv-p" onClick={() => setBare(true)}>Full screen</button>
         </header>
         {bare && <button className="scv-p scv-show" onClick={() => setBare(false)}>Show chat</button>}
         {/* zone 2: the screen, never covered */}
         <div className="scv-screen"><div className="scv-frame">
           <iframe key={(typing ? 'c' : 'w') + (thread.slot ?? 0)} src={(thread.slot ? `/dogview/${thread.slot}/` : '/dogview/') + (typing ? '?control' : '')} title="The dog computer's screen, live" />
+          {live.busy.on && !typing && <i className="scv-scan" aria-hidden="true" />}
         </div></div>
         {/* zone 3: the rail (sideways) or the stack under the screen (upright): now doing, chat, choices, composer */}
         <div className="scv-rail">
-          <div className={'scv-now' + (live.busy.on ? ' live' : '')}><i aria-hidden="true" />{doing}</div>
+          <div key={doing} className={'scv-now' + (live.busy.on ? ' live' : '')} role="status" aria-live="polite">{live.busy.on ? <i className="scv-spin" aria-hidden="true" /> : <b className="scv-ok" aria-hidden="true">✓</b>}{doing}</div>
+          {trail.length > 0 && <ol className="scv-trail" aria-label="What the dog did">{trail.map(st => <li key={st.id}><span aria-hidden="true">✓</span>{plainStep(st.text)}</li>)}</ol>}
           {typing && <Keys onError={setKeyErr} slot={thread.slot} />}
           {keyErr && <p className="small" role="alert">{keyErr}</p>}
           <div className="scv-chat" role="log">{msgs.slice(-8).map(msgEl)}<div ref={end} /></div>
@@ -264,6 +268,20 @@ function BoardView({ b, approved, onOpen, onContinue, onAddDone }: { b: NonNulla
 
 // what the dog is doing right now, as it happens: its own "thinking out loud" lines and each tool it reaches for
 const STEP_PLAIN = (t: string) => t.replace(/^» /, '').replace(/(?:~|\/Users\/[^/\s]+|\/Volumes\/[^/\s]+)\/(?:[^\s/]+\/)*/g, '')
+// a tool step in plain words ("Using browser · browser_click" → "Clicking"); the dog's own status lines pass through
+const TOOL_WORDS: Record<string, string> = {
+  web_open: 'Opening a page', browser_navigate: 'Opening a page', web_look: 'Looking at the page', browser_snapshot: 'Reading the page',
+  browser_take_screenshot: 'Looking at the screen', web_click: 'Clicking', browser_click: 'Clicking', web_type: 'Typing', browser_type: 'Typing',
+  browser_fill_form: 'Filling in the form', web_scroll: 'Scrolling', web_back: 'Going back', browser_navigate_back: 'Going back',
+  browser_evaluate: 'Reading the page', browser_close: 'Closing the browser', browser_select_option: 'Choosing an option',
+  browser_press_key: 'Pressing a key', browser_wait_for: 'Waiting for the page', browser_tabs: 'Switching tabs', vm_run: 'Running a command on the dog computer',
+}
+const plainStep = (t: string) => {
+  const tool = t.match(/\b((?:web|browser|vm)_[a-z_]+)\b/)?.[1]
+  if (tool && TOOL_WORDS[tool]) return TOOL_WORDS[tool]
+  const p = STEP_PLAIN(t).replace(/^Browser: /, '') // the dog computer's steps already read plainly ("Browser: clicking "Tickets"")
+  return p.charAt(0).toUpperCase() + p.slice(1)
+}
 export function Working({ steps, since, doing }: { steps: { id: string; text: string; ts: number }[]; since: number; doing?: string }) {
   const [now, setNow] = useState(Date.now())
   const [shown] = useState(Date.now()) // no message of Carl's to count from (a reopened thread): count from when this appeared

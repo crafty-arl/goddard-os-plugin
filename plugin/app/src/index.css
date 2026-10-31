@@ -892,7 +892,10 @@ body.pethome .tabbar { display: none }
 .scv-p.on { background: #D79B45; color: #070707 }
 span.scv-p { cursor: default }
 .scv-show { position: absolute; z-index: 3; right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); background: rgba(10,9,7,.8); color: #D79B45; font-weight: 600 }
-.scv.bare .scv-hud, .scv.bare .scv-rail { display: none }
+/* full screen: the HUD lifts away and the rail sinks, the screen stays put (the mock's motion) */
+.scv-hud, .scv-rail { transition: opacity .4s ease, transform .55s cubic-bezier(.2,.8,.2,1), filter .4s ease }
+.scv.bare .scv-hud { opacity: 0; transform: translateY(-30px); filter: blur(6px); pointer-events: none }
+.scv.bare .scv-rail { opacity: 0; transform: translateY(50px); filter: blur(6px); pointer-events: none }
 .scv-title { font: 600 15px 'Playfair Display', Georgia, serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; padding: 0 4px }
 .scv-grow { flex: 1 }
 .scv-gold { color: #D79B45; font-weight: 600 } .scv-ok { color: #8FBF7A; font-weight: 600 }
@@ -999,3 +1002,22 @@ span.scv-p { cursor: default }
 .sess-modebar-menu button.on { background: #221F19 }
 .sess-cols.no-board .sess-board { display: none }
 .trust-step .trust-cmd { margin: 4px 0; padding: 10px 12px; border-radius: 10px; background: #0B0A08; border: 1px solid #2A2620; color: #F1EEE7; font: 500 14px "Geist Mono", ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; user-select: all }
+
+/* the screen view arrives in motion: the screen grows in, the HUD drops, the rail rises in a cascade */
+@keyframes scvIn { from { opacity: 0; transform: translate(-50%, -50%) scale(.9); filter: blur(8px) } to { opacity: 1; transform: translate(-50%, -50%); filter: none } }
+@keyframes scvDrop { from { opacity: 0; transform: translateY(-18px) } to { opacity: 1; transform: none } }
+@keyframes scvRise { from { opacity: 0; transform: translateY(16px); filter: blur(4px) } to { opacity: 1; transform: none; filter: none } }
+@keyframes scvScan { from { transform: translateY(-100%) } to { transform: translateY(100%) } }
+@keyframes scvSpin { to { transform: rotate(360deg) } }
+.scv-frame { animation: scvIn .7s cubic-bezier(.2,.8,.2,1) backwards }
+.scv-hud { animation: scvDrop .55s .1s cubic-bezier(.2,.8,.2,1) backwards } /* backwards: once it has arrived, Full screen's transition takes over */
+.scv-rail > * { animation: scvRise .5s cubic-bezier(.2,.8,.2,1) backwards }
+.scv-rail > :nth-child(2) { animation-delay: .08s } .scv-rail > :nth-child(3) { animation-delay: .16s } .scv-rail > :nth-child(4) { animation-delay: .24s } .scv-rail > :nth-child(n+5) { animation-delay: .32s }
+.scv-scan { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(215,155,69,0), rgba(215,155,69,.08), rgba(215,155,69,0)); animation: scvScan 2.8s linear infinite }
+.scv-now i.scv-spin { width: 12px; height: 12px; border-radius: 50%; background: none; border: 2px solid #3a342a; border-top-color: #D79B45; animation: scvSpin 1s linear infinite }
+.scv-now .scv-ok { flex: none }
+.scv-trail { list-style: none; margin: 0; padding: 8px 4px; display: flex; flex-direction: column; gap: 2px; flex: none; border-radius: 14px; background: rgba(10,9,7,.78); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px) }
+.scv-trail li { display: flex; gap: 8px; align-items: baseline; padding: 3px 12px; font: 500 12px Inter, system-ui, sans-serif; color: #B9B2A4; animation: scvRise .45s cubic-bezier(.2,.8,.2,1) backwards }
+.scv-trail li span { color: #8FBF7A }
+.scv-trail li:first-child { color: #F1EEE7 }
+@media (prefers-reduced-motion: reduce) { .scv-frame, .scv-hud, .scv-rail > *, .scv-trail li, .scv-scan, .scv-now i.scv-spin { animation: none } .scv-hud, .scv-rail { transition: none } }

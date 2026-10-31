@@ -7,7 +7,7 @@
       "name": "goddard-os",
       "source": "./plugin",
       "description": "A calm phone home for your Claude Code background sessions: give jobs to named helpers, approve their plans, and get one ping when something needs you.",
-      "version": "0.1.6"
+      "version": "0.1.7"
     }
   ]
 }
