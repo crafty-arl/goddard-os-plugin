@@ -998,3 +998,4 @@ span.scv-p { cursor: default }
 .sess-modebar-menu button span { color: #9C968A }
 .sess-modebar-menu button.on { background: #221F19 }
 .sess-cols.no-board .sess-board { display: none }
+.trust-step .trust-cmd { margin: 4px 0; padding: 10px 12px; border-radius: 10px; background: #0B0A08; border: 1px solid #2A2620; color: #F1EEE7; font: 500 14px "Geist Mono", ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; user-select: all }

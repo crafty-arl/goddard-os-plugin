@@ -10,7 +10,7 @@
 
 import { appendFileSync, chmodSync, mkdtempSync, copyFileSync, existsSync, readFileSync, readdirSync, unlinkSync, writeFileSync, mkdirSync, realpathSync, statSync } from 'fs'
 import { homedir, tmpdir } from 'os'
-import { basename, join, resolve } from 'path'
+import { basename, dirname, join, resolve } from 'path'
 import { DOOR_PORT, HEAD, HOST, SESSIONS_DIR, STATE_DIR, TOKEN, gate, isToken, lanAddress } from './common'
 import { profile, has, own, ownFile, mindDir, DEFAULT_DIR, saveProfile, PROFILE_FILE, type Profile } from './profile'
 import webpush from 'web-push'
@@ -82,6 +82,8 @@ const waking = new Map<string, number>() // name -> when we last started it
 async function watchdog() {
   // nothing wakes until Setup is saved, so a new install never starts a session on its own (GM_NO_WATCHDOG=1 turns it off for tests)
   if (!existsSync(PROFILE_FILE) || process.env.GM_NO_WATCHDOG) return
+  // until the owner trusts the work folder, nothing can start; Home shows them the one step (no retry noise in the log)
+  if (!trusted(config().home.folder)) return
   const list = await threads(), bg = await bgSessions()
   const regOf = (port: number) => { try { return JSON.parse(readFileSync(join(SESSIONS_DIR, `${port}.json`), 'utf8')) as { started?: number } } catch { return {} } }
   // doubles
@@ -138,11 +140,26 @@ const WD_MS = Number(process.env.GM_WATCHDOG_MS ?? 0)
 setTimeout(() => { watchdog().catch(() => {}); setInterval(() => { watchdog().catch(() => {}) }, WD_MS || 2 * 60_000) }, WD_MS || 30_000)
 
 // one setup step's "Test it": a plain yes or no, and what was checked, in words
+// Claude Code only starts a background session in a folder the owner has trusted (in ~/.claude.json, for the folder
+// or one above it, but never the home folder itself). The owner says yes to that once, in Terminal; Goddard OS never
+// says it for them.
+function trusted(folder: string): boolean {
+  if (process.env.GM_CLAUDE) return true // a test stand-in starts nothing, so there is nothing to trust
+  const dir = home(folder)
+  let projects: Record<string, { hasTrustDialogAccepted?: boolean }> = {}
+  try { projects = JSON.parse(readFileSync(join(homedir(), '.claude.json'), 'utf8')).projects ?? {} } catch { return false }
+  for (let d = dir; d.length > homedir().length; d = dirname(d)) if (projects[d]?.hasTrustDialogAccepted) return true
+  return false
+}
+const workFolder = () => { const f = mindDir(); if (f === DEFAULT_DIR) try { mkdirSync(home(f), { recursive: true }) } catch {} return { dir: f, trusted: trusted(f) } }
 async function testPart(part: string, v: Record<string, string>): Promise<{ ok: boolean; said: string }> {
   const run = async (cmd: string[], ms: number) => { try { const p = Bun.spawn(cmd, { stdout: 'pipe', stderr: 'pipe' }); const t = setTimeout(() => p.kill(), ms); const out = await new Response(p.stdout).text(); clearTimeout(t); return { code: await p.exited, out: out.trim() } } catch (e) { return { code: 1, out: (e as Error).message } } }
   if (part === 'mac') {
     const missing = [CLAUDE, 'bun'].filter(x => !Bun.which(x)).map(x => x === CLAUDE ? 'claude' : x)
-    return missing.length ? { ok: false, said: `Not found on this Mac: ${missing.join(', ')}` } : { ok: true, said: 'Claude Code and Bun are both here.' }
+    if (missing.length) return { ok: false, said: `Not found on this Mac: ${missing.join(', ')}` }
+    const w = workFolder()
+    return w.trusted ? { ok: true, said: 'Claude Code and Bun are both here.' }
+      : { ok: false, said: `Claude Code and Bun are here. One more step: in Terminal, run  cd ${w.dir} && claude  then choose Yes to trust the folder, and type /exit.` }
   }
   if (part === 'memory' || part === 'bigDrive') {
     const path = home(String(v.path ?? ''))
@@ -1383,7 +1400,7 @@ Bun.serve({
     // long-running plans (Carl, 2026-10-28: "time based action plans over a long time"): Goddard saves them once Carl
     // says they look right; the Plans screen shows them; check-ins act on what's due
     // the setup screen (2026-10-30): read the owner's profile, save it, and test one part before turning it on
-    if (url.pathname === '/api/profile' && req.method === 'GET') return Response.json({ profile: profile(), exists: existsSync(PROFILE_FILE) })
+    if (url.pathname === '/api/profile' && req.method === 'GET') return Response.json({ profile: profile(), exists: existsSync(PROFILE_FILE), work: workFolder() })
     if (url.pathname === '/api/profile' && req.method === 'POST') {
       const b = await req.json().catch(() => null) as Partial<Profile> | null
       if (!b?.owner?.name?.trim()) return Response.json({ error: 'A name is needed' }, { status: 400 })

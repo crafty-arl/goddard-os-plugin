@@ -69,7 +69,8 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
   const [signin, setSignin] = useState(false)
   // a new install (no profile saved yet) opens on Setup; once it's saved, Home opens as usual
   const [call, setCall] = useState('boss') // what the dogs call the owner, from their profile
-  const readProfile = (first = false) => fetch('/door/api/profile').then(r => r.json()).then(j => { if (first && j.exists === false) setSetup(true); if (j.profile?.owner?.call) setCall(j.profile.owner.call) }, () => {})
+  const [work, setWork] = useState<{ dir: string; trusted: boolean } | null>(null) // the folder the dogs work in, and whether Claude Code may start there
+  const readProfile = (first = false) => fetch('/door/api/profile').then(r => r.json()).then(j => { if (first && j.exists === false) setSetup(true); if (j.profile?.owner?.call) setCall(j.profile.owner.call); if (j.exists) setWork(j.work ?? null) }, () => {})
   useEffect(() => { readProfile(true) }, [])
   const [chat, setChat] = useState(false)
   // Carl, 2026-10-29: "Start first". The session loop is the main thing; the rest waits behind More
@@ -113,6 +114,7 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
         <span className="calm-day">{new Date().toLocaleDateString([], { weekday: 'long' })} {hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}</span>
         <h1>{line}</h1>
       </header>
+      {work && !work.trusted && <TrustStep dir={work.dir} onDone={() => readProfile()} />}
       <Evening onOpen={t => reopen(t)} onView={onView} />
       {settled && <div className="calm-done" role="status"><span aria-hidden="true">✓</span>{settled}</div>}
       {/* Home in three lists, always in this order (audit fix 1, 2026-10-30): what needs Carl, what's running, what he can pick up */}
@@ -338,6 +340,19 @@ function Evening({ onOpen, onView }: { onOpen: (title: string) => void } & Pick<
       {d.needs.length > 0 && <p className="calm-line">Waiting on you: {d.needs.join(', ')}.</p>}
       {d.next && <p className="calm-sub">Next: {d.next.title} ({d.next.why})</p>}
       <div className="calm-btns">{d.next && <button className="go" onClick={() => onOpen(d.next!.title)}>Pick it up</button>}<button onClick={put}>Got it</button></div>
+    </article>
+  )
+}
+
+// the one step only the owner can take: telling Claude Code it may work in this folder (a new install's first run)
+function TrustStep({ dir, onDone }: { dir: string; onDone: () => void }) {
+  return (
+    <article className="calm-card trust-step" aria-label="One step before your dogs can start">
+      <span className="calm-from">One step before your dogs can start</span>
+      <p className="calm-line">Claude Code needs your OK to work in {dir}. On this Mac, open Terminal and run:</p>
+      <pre className="trust-cmd">cd {dir} && claude</pre>
+      <p className="calm-sub">Choose <b>Yes, I trust this folder</b>, then type <b>/exit</b>. Goddard starts within two minutes.</p>
+      <div className="calm-btns"><button className="go" onClick={onDone}>I did it</button></div>
     </article>
   )
 }
