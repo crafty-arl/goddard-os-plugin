@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Brings Goddard OS back when Carl logs in to the Mac: the door, the app, the dogs and Goddard, all in the
+     background. Carl installs it himself (scripts/install-login.sh); nothing in Goddard OS installs it. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>xyz.gmcarl.goddard-os</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>sleep 20; cd "$HOME/goddard-os" &amp;&amp; exec bun scripts/boot.ts</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/goddard-os-login.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/goddard-os-login.log</string>
+</dict>
+</plist>

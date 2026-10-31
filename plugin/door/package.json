@@ -1,0 +1,15 @@
+{
+  "name": "gm-chat",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun install --no-summary && bun server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.17.0",
+    "web-push": "3.6.7",
+    "zod": "3.25.76"
+  }
+}

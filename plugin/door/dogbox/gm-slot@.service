@@ -1,0 +1,10 @@
+[Unit]
+Description=dog-box session screen %i
+After=network.target
+
+[Service]
+User=dog
+ExecStart=/home/dog/web/slot-run.sh %i
+Restart=no
+KillMode=control-group
+SuccessExitStatus=143 SIGTERM

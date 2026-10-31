@@ -1,0 +1,38 @@
+{
+ "owner": {
+  "name": "Your name",
+  "call": "boss",
+  "studio": "Your studio"
+ },
+ "memory": {
+  "on": false,
+  "path": "~/notes"
+ },
+ "dogComputer": {
+  "on": false,
+  "kind": "proxmox-vm",
+  "host": "root@your-proxmox-host",
+  "vm": "your-vm-address",
+  "slots": 3
+ },
+ "helper": {
+  "on": false,
+  "name": "Helper",
+  "bus": "http://your-helper-box:7790"
+ },
+ "bigDrive": {
+  "on": false,
+  "path": "/Volumes/YourDrive"
+ },
+ "pings": {
+  "on": true,
+  "quiet": [
+   23,
+   7
+  ],
+  "perHour": 1
+ },
+ "phone": {
+  "reach": "wifi"
+ }
+}
