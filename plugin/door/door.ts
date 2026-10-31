@@ -24,7 +24,8 @@ const dogSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 // the Claude sessions running in the background, as `claude agents` lists them
 type BgSession = { id: string; name?: string; pid?: number; status?: string; startedAt?: number; sessionId?: string }
 // the Claude Code command; tests set GM_CLAUDE to a stand-in that records each call and starts nothing
-const CLAUDE = process.env.GM_CLAUDE ?? 'claude'
+// resolved once to a full path, so a login shell's PATH can't swap in a different (older) claude for the dogs
+const CLAUDE = process.env.GM_CLAUDE ?? Bun.which('claude') ?? 'claude'
 async function bgSessions(): Promise<BgSession[]> {
   try {
     const all = JSON.parse(await new Response(Bun.spawn([CLAUDE, 'agents', '--json'], { stderr: 'ignore' }).stdout).text() || '[]') as (BgSession & { kind?: string })[]
