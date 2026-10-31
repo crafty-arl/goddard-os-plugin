@@ -75,6 +75,7 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
   const [chat, setChat] = useState(false)
   // Carl, 2026-10-29: "Start first". The session loop is the main thing; the rest waits behind More
   const [more, setMore] = useState(false)
+  const [later, setLater] = useState(false) // the rest of Pick up, folded (the mock's "Later · N")
   // sessions worth hopping into, from real things only (what came next, what stopped short, new uploads, goal tasks)
   const [ideas, setIdeas] = useState<SessionIdea[]>([])
   useEffect(() => { loadSessionIdeas().then(setIdeas, () => {}) }, [threads.filter(isSession).length])
@@ -118,9 +119,10 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
       <Evening onOpen={t => reopen(t)} onView={onView} />
       {settled && <div className="calm-done" role="status"><span aria-hidden="true">✓</span>{settled}</div>}
       {/* Home in three lists, always in this order (audit fix 1, 2026-10-30): what needs Carl, what's running, what he can pick up */}
-      <section className="home-list" aria-label="Needs you">
-        <span className="calm-from">Needs you · {items.length}</span>
-        {!focus && <p className="home-empty">Nothing. You're clear.</p>}
+      {/* grouped by what Carl does next (the focus mock, 2026-10-30): do now, running, pick up; an empty group says nothing */}
+      {!items.length && !running.length && <p className="home-clear"><span aria-hidden="true">✓</span>Nothing needs you, and nothing is running.</p>}
+      {items.length > 0 && <section className="home-list" aria-label="Do now">
+        <span className="home-label do">Do now · {items.length}</span>
         {focus && (focus.key.startsWith('s') ? (
           <article className="calm-card">
             <span className="calm-from">Session · {focus.who}</span>
@@ -133,19 +135,18 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
             <i className="home-dot need" aria-hidden="true" /><b>{i.who}</b><span className="muted">waiting {ago(i.at)}</span>
           </button>
         ))}
-      </section>
-      <section className="home-list" aria-label="Running">
-        <span className="calm-from">Running · {running.length}</span>
-        {!running.length && <p className="home-empty">Nothing running.</p>}
+      </section>}
+      {running.length > 0 && <section className="home-list" aria-label="Running">
+        <span className="home-label">Running · {running.length} · nothing to do</span>
         {running.map(t => (
           <button key={t.port} className="home-row" onClick={() => isSession(t) ? setSess(t.port) : setChat(t.home ?? false)} disabled={!isSession(t) && !t.home}>
             <i className="home-dot live" aria-hidden="true" /><b>{isSession(t) ? sessionTitle(t) : t.home ? 'Goddard' : dogName(t) ?? 'A dog'}</b>
             <span className="muted">{t.auto ? `Auto · ${Math.max(0, Math.round((t.auto.until - Date.now()) / 60000))} min left` : cut(plain(t.doing || 'working'), 40)}</span>
           </button>
         ))}
-      </section>
+      </section>}
       <section className="home-list calm-sessions" aria-label="Pick up">
-        <span className="calm-from">Pick up</span>
+        <span className="home-label">Pick up</span>
         {/* half-done work first, then what comes next after finished work */}
         {pickup.map(t => (
           <button key={t.port} className="home-row" onClick={() => setSess(t.port)}>
@@ -153,12 +154,22 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
             <span className="muted">{(t.sessionMode ?? 'plan') !== 'plan' ? `${modeLabel(t.sessionMode)}${t.busy ? ' · working' : ''}` : t.board ? `phase ${t.board.now + 1} of ${t.board.phases.length}` : 'no plan yet'}</span>
           </button>
         ))}
-        {ideas.filter(i => !/\btest\b/i.test(i.title)).sort((a, b) => Number(b.from === 'unfinished') - Number(a.from === 'unfinished')).slice(0, Math.max(0, 3 - pickup.length)).map(i => (
-          <button key={i.from + i.title} className="calm-idea" disabled={reopening === i.reopen && !!i.reopen} onClick={() => i.reopen ? reopen(i.reopen) : (setCarry({ brought: i.brought, want: i.want, title: i.title.replace(/^(Next for|Finish) /, '').slice(0, 26) }), setSess('new'))}>
-            <b>{i.title}</b><span>{i.why}</span>
-          </button>
-        ))}
-        <button className="calm-start" onClick={() => { setCarry(undefined); setSess('new') }}><b>Start a session</b><span>Bring anything. Plan it, just talk, or just do it.</span></button>
+        {(() => {
+          // test runs and one-word starts ("Hi") aren't work to pick up
+          const real = ideas.filter(i => !/\btest\b/i.test(i.title) && i.title.replace(/^(Next for|Finish) /, '').trim().length > 3)
+            .sort((a, b) => Number(b.from === 'unfinished') - Number(a.from === 'unfinished'))
+          const room = Math.max(0, 2 - pickup.length), shown = later ? real : real.slice(0, room), rest = real.length - room
+          return <>
+            {shown.map(i => (
+              <button key={i.from + i.title} className="calm-idea" disabled={reopening === i.reopen && !!i.reopen} onClick={() => i.reopen ? reopen(i.reopen) : (setCarry({ brought: i.brought, want: i.want, title: i.title.replace(/^(Next for|Finish) /, '').slice(0, 26) }), setSess('new'))}>
+                <span className={'calm-idea-kind ' + i.from}>{i.from === 'unfinished' ? 'Unfinished' : i.from === 'carry-on' ? 'Next step' : i.from === 'upload' ? 'You added this' : 'From your goals'}</span>
+                <b>{i.title.replace(/^(Next for|Finish) /, '')}</b><span>{i.why}</span>
+              </button>
+            ))}
+            {rest > 0 && !later && <button className="home-later" onClick={() => setLater(true)}>Later · {rest} more <span aria-hidden="true">▸</span></button>}
+          </>
+        })()}
+        <button className="calm-start" onClick={() => { setCarry(undefined); setSess('new') }}><b>Start a session <span aria-hidden="true">＋</span></b><span>Bring anything. Plan it, just talk, or just do it.</span></button>
       </section>
       <button className="calm-quiet calm-morebtn" aria-expanded={more} onClick={() => setMore(m => !m)}>{more ? 'Less' : 'More'}</button>
       {more && <div className="calm-extra">

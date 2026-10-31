@@ -1021,3 +1021,29 @@ span.scv-p { cursor: default }
 .scv-trail li span { color: #8FBF7A }
 .scv-trail li:first-child { color: #F1EEE7 }
 @media (prefers-reduced-motion: reduce) { .scv-frame, .scv-hud, .scv-rail > *, .scv-trail li, .scv-scan, .scv-now i.scv-spin { animation: none } .scv-hud, .scv-rail { transition: none } }
+
+/* Home, grouped by what you do next, in motion (2026-10-30) */
+.home-label { font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #9C968A }
+.home-label.do { color: #D79B45 }
+.home-clear { display: flex; align-items: center; gap: 10px; margin: 0; padding: 14px 16px; border-radius: 16px; background: #12110D; border: 1px solid #221F19; color: #B9B2A4; font-size: 15px }
+.home-clear span { color: #8FBF7A; font-weight: 700 }
+.calm-idea { gap: 4px; padding: 14px 16px; border: 1px solid #2A2620; background: #12110D; transition: transform .25s cubic-bezier(.2,.8,.2,1), border-color .25s, background .25s }
+.calm-idea:hover { transform: translateX(4px); border-color: #4A4337; background: #15130F }
+.calm-idea:active, .calm-start:active, .home-row:active { transform: scale(.98) }
+.calm-idea-kind { align-self: flex-start; padding: 2px 8px; border-radius: 99px; font-size: 11px !important; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #D79B45 !important; background: #2A2216; -webkit-line-clamp: unset !important }
+.calm-idea-kind.carry-on { color: #8FBF7A !important; background: #1C2618 }
+.calm-idea-kind.upload, .calm-idea-kind.goals { color: #CFC8BA !important; background: #221F19 }
+.home-later { display: flex; justify-content: space-between; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 14px; border: 1px solid #221F19; background: transparent; color: #B9B2A4; font: 500 14px Inter, system-ui, sans-serif; cursor: pointer; transition: border-color .25s, color .25s }
+.home-later:hover { border-color: #4A4337; color: #F1EEE7 }
+.calm-start { border: 1.5px solid #D79B45; background: #1A160F; transition: transform .25s cubic-bezier(.2,.8,.2,1), background .25s }
+.calm-start b { display: flex; justify-content: space-between; align-items: center }
+.calm-start b span { color: #D79B45; font-size: 20px }
+.calm-start:hover { background: #211B12 }
+.home-row { transition: transform .25s cubic-bezier(.2,.8,.2,1) }
+@keyframes homeRise { from { opacity: 0; transform: translateY(18px); filter: blur(4px) } to { opacity: 1; transform: none; filter: none } }
+.calm > * { animation: homeRise .6s cubic-bezier(.2,.8,.2,1) backwards }
+.calm > :nth-child(2) { animation-delay: .07s } .calm > :nth-child(3) { animation-delay: .14s } .calm > :nth-child(4) { animation-delay: .21s }
+.calm > :nth-child(5) { animation-delay: .28s } .calm > :nth-child(n+6) { animation-delay: .35s }
+.calm-sessions > * { animation: homeRise .5s cubic-bezier(.2,.8,.2,1) backwards }
+.calm-sessions > :nth-child(2) { animation-delay: .3s } .calm-sessions > :nth-child(3) { animation-delay: .38s } .calm-sessions > :nth-child(4) { animation-delay: .46s } .calm-sessions > :nth-child(n+5) { animation-delay: .54s }
+@media (prefers-reduced-motion: reduce) { .calm > *, .calm-sessions > * { animation: none } .calm-idea, .calm-start, .home-row, .home-later { transition: none } }
