@@ -35,7 +35,13 @@ type View = { kind: 'home' } | { kind: 'history' } | { kind: 'thread'; port: num
 const statusOf = (t: Thread) => (t.needsYou ? 'Needs you' : t.busy ? t.doing || 'Working' : t.last.text || 'Idle')
 const phaseOf = (t: Thread) => (t.needsYou || !t.busy ? 2 : 1)
 
-export function LiveApp({ list, wide, refresh, stale }: { list: DoorList; wide: boolean; refresh: () => void; stale?: boolean }) {
+export function LiveApp({ list, wide: wideAsked, refresh, stale }: { list: DoorList; wide: boolean; refresh: () => void; stale?: boolean }) {
+  // Sessions only (Carl, 2026-10-31: "remove the 2.5 digital map and remove the dog icons and just allow us to run
+  // sessions"): no town, no pack, no dog heads; Home and its sessions on every screen. More → "Show the map and the
+  // pack" brings the old layout back on this device.
+  const [simple, setSimple] = useState(() => { try { return localStorage.getItem('goddard.map') !== '1' } catch { return true } })
+  const toggleMap = () => { try { localStorage.setItem('goddard.map', simple ? '1' : '0') } catch { /* this visit only */ } setSimple(!simple) }
+  const wide = wideAsked && !simple
   const [call, setCall] = useState('boss') // what the dogs call the owner, from their profile
   useEffect(() => { fetch('/door/api/profile').then(r => r.json()).then(j => { if (j.profile?.owner?.call) setCall(j.profile.owner.call) }, () => {}) }, [])
   const agents = list.threads.filter(t => !t.home)
@@ -504,8 +510,8 @@ export function LiveApp({ list, wide, refresh, stale }: { list: DoorList; wide: 
   const swipe = useRef<number | null>(null)
 
   return (
-    <div className={'app hud ' + (wide ? 'desk' : 'phone')}>
-      <div className="worldlayer">{world}</div>
+    <div className={'app hud ' + (wide ? 'desk' : 'phone') + (simple ? ' simple' : '')}>
+      {!simple && <div className="worldlayer">{world}</div>}
       <header className="hudtop">
         <div className="brand"><GoddardHead size={wide ? 56 : 36} barking={!!needy} /><div><h1>GODDARD OS</h1><p className="muted small">{greeting}</p></div></div>
         {wide && (
@@ -552,7 +558,7 @@ export function LiveApp({ list, wide, refresh, stale }: { list: DoorList; wide: 
         </section>
       ))}
       {!wide && view.kind === 'home' && !exploring && !petsOpen && (
-        <CalmHome threads={list.threads} tasks={list.tasks ?? []} home={home} onPack={() => setPetsOpen(true)}
+        <CalmHome threads={list.threads} tasks={list.tasks ?? []} home={home} onPack={simple ? undefined : () => setPetsOpen(true)} onMap={toggleMap}
           onHistory={() => setView({ kind: 'history' })} onToast={setToast} refresh={refresh} onView={setViewing}
           preview={id => { const e = latestFor(id); return e ? <LivePreview e={e} big onOpen={setViewing} /> : null }} />
       )}

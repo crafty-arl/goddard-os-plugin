@@ -18,7 +18,7 @@ type Test = { ok: boolean; said: string } | 'testing'
 const STEPS = ['You and your Mac', 'Reach it from your phone', 'Your dogs', 'The dog computer', 'Pings', 'More connections']
 const hour = (h: number) => h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? 'noon' : `${h - 12} PM`
 
-export function Setup({ onBack, onPack, onToast }: { onBack: () => void; onPack: () => void; onToast: (m: string) => void }) {
+export function Setup({ onBack, onPack, onToast }: { onBack: () => void; onPack?: () => void; onToast: (m: string) => void }) {
   const [p, setP] = useState<Profile | null>(null)
   const [step, setStep] = useState(0)
   const [tests, setTests] = useState<Record<string, Test>>({})
@@ -64,7 +64,8 @@ export function Setup({ onBack, onPack, onToast }: { onBack: () => void; onPack:
     </>,
     <>
       <p className="calm-sub">Each dog is its own Claude session with one job. Your dogs live in The pack, where you add, rename or change them.</p>
-      <button className="calm-start" onClick={onPack}><b>Open The pack</b><span>See your dogs and add a new one.</span></button>
+      {onPack ? <button className="calm-start" onClick={onPack}><b>Open The pack</b><span>See your dogs and add a new one.</span></button>
+        : <p className="calm-sub">They work in the background. When you ask for something no dog does yet, Goddard offers to make one.</p>}
     </>,
     <>
       <Choice value={dc.on ? dc.kind : 'none'} onChange={v => set(q => ({ ...q, dogComputer: v === 'none' ? { ...dc, on: false } : { ...dc, on: true, kind: v as 'proxmox-vm' | 'this-mac' } }))} options={[

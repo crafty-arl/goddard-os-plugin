@@ -52,8 +52,8 @@ export function useQueue(threads: Thread[], tasks: Task[]) {
 // proof a job is done: what the dog made (a picture, a page, a file or a link), never just the words "it's done"
 type Proof = { preview: (taskId: string) => ReactNode; onView: (o: Output) => void }
 
-export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, refresh, preview, onView }: {
-  threads: Thread[]; tasks: Task[]; home?: Thread; onPack: () => void; onHistory: () => void; onToast: (m: string) => void; refresh: () => void
+export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, refresh, preview, onView, onMap }: {
+  threads: Thread[]; tasks: Task[]; home?: Thread; onPack?: () => void; onMap?: () => void; onHistory: () => void; onToast: (m: string) => void; refresh: () => void
 } & Proof) {
   const { items, putOff } = useQueue(threads, tasks)
   const [settled, setSettled] = useState<string | null>(null)
@@ -108,7 +108,7 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
   if (chat) return <GoddardChat thread={home} onBack={() => setChat(false)} onToast={onToast} />
   if (sched) return <Schedules onBack={() => setSched(false)} />
   if (signin) return <SignIn onBack={() => setSignin(false)} onToast={onToast} />
-  if (setup) return <Setup onBack={() => { setSetup(false); readProfile() }} onPack={() => { setSetup(false); onPack() }} onToast={onToast} />
+  if (setup) return <Setup onBack={() => { setSetup(false); readProfile() }} onPack={onPack ? () => { setSetup(false); onPack() } : undefined} onToast={onToast} />
   if (plans) return <section className="calm"><PlansView onBack={() => setPlans(false)} onAsk={ask} /></section>
 
   return (
@@ -192,7 +192,7 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
       </section>}
       <DoneToday tasks={tasks} threads={threads} preview={preview} onView={onView} onSaved={t => { reload(); onToast(`Saved "${t}". It's under More.`) }} />
       <nav className="calm-links" aria-label="More">
-        <button onClick={onPack}>The pack</button><button onClick={() => setPlans(true)}>Plans</button><button onClick={() => setSched(true)}>Schedules</button><button onClick={onHistory}>History</button><button onClick={() => setSetup(true)}>Setup</button><button onClick={() => setSignin(true)}>Sign-in</button>
+        {onPack && <button onClick={onPack}>The pack</button>}<button onClick={() => setPlans(true)}>Plans</button><button onClick={() => setSched(true)}>Schedules</button><button onClick={onHistory}>History</button><button onClick={() => setSetup(true)}>Setup</button><button onClick={() => setSignin(true)}>Sign-in</button>{onMap && <button onClick={onMap}>{onPack ? 'Sessions only' : 'Show the map and the pack'}</button>}
       </nav>
       </div>}
       <button className="calm-say calm-chatbtn" onClick={() => setChat(true)} aria-label="Chat with Goddard">

@@ -1168,3 +1168,6 @@ span.scv-p { cursor: default }
 .old-grouped .talk-ask { border-color: #4A3E2A; background: #14110C }
 .old-grouped .talk-ask p, .old-grouped .talk-group p { font-size: 14px }
 .old-grouped .talk-group { padding: 8px 12px }
+/* Sessions only: no town behind Home, no header with the dog head */
+.app.simple .hudtop { display: none }
+.app.simple { background: #0B0A08 }
