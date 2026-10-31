@@ -1047,3 +1047,6 @@ span.scv-p { cursor: default }
 .calm-sessions > * { animation: homeRise .5s cubic-bezier(.2,.8,.2,1) backwards }
 .calm-sessions > :nth-child(2) { animation-delay: .3s } .calm-sessions > :nth-child(3) { animation-delay: .38s } .calm-sessions > :nth-child(4) { animation-delay: .46s } .calm-sessions > :nth-child(n+5) { animation-delay: .54s }
 @media (prefers-reduced-motion: reduce) { .calm > *, .calm-sessions > * { animation: none } .calm-idea, .calm-start, .home-row, .home-later { transition: none } }
+/* Home scrolls inside the phone frame (the frame is fixed and clips), and the chat bar stays in reach at the bottom */
+.app > section.calm { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch }
+.app > section.calm > .calm-chatbtn { position: sticky; bottom: 0; flex: none; box-shadow: 0 -18px 24px 6px #0B0A08 }
