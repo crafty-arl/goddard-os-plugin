@@ -301,3 +301,10 @@ describe('session modes: Plan it, Just talk, Just do it', () => {
 test('no home network addresses in the instructions the dogs read', () => {
   for (const f of ['home.md', 'session.md', 'talk.md', 'do.md']) expect(readFileSync(join(ROOT, 'door', f), 'utf8')).not.toMatch(/\b(192\.168|10\.\d+\.\d+|100\.\d+\.\d+)\.\d+/)
 })
+
+test("Pick up never shows another owner's goal suggestions", async () => {
+  writeFileSync(join(STATE, 'profile.json'), JSON.stringify({ owner: { name: 'Dana', call: 'chief' }, memory: { on: true, path: NOTES } }))
+  await sleep(10_500) // the door reads the profile again after 10 seconds
+  const ideas = (await (await app('/door/api/session/ideas')).json()).ideas ?? []
+  expect(ideas.filter((i: { from: string }) => i.from === 'goals')).toEqual([])
+}, 20_000)

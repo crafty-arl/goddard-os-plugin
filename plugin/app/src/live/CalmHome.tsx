@@ -68,7 +68,9 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
   const [setup, setSetup] = useState(false)
   const [signin, setSignin] = useState(false)
   // a new install (no profile saved yet) opens on Setup; once it's saved, Home opens as usual
-  useEffect(() => { fetch('/door/api/profile').then(r => r.json()).then(j => { if (j.exists === false) setSetup(true) }, () => {}) }, [])
+  const [call, setCall] = useState('boss') // what the dogs call the owner, from their profile
+  const readProfile = (first = false) => fetch('/door/api/profile').then(r => r.json()).then(j => { if (first && j.exists === false) setSetup(true); if (j.profile?.owner?.call) setCall(j.profile.owner.call) }, () => {})
+  useEffect(() => { readProfile(true) }, [])
   const [chat, setChat] = useState(false)
   // Carl, 2026-10-29: "Start first". The session loop is the main thing; the rest waits behind More
   const [more, setMore] = useState(false)
@@ -92,8 +94,8 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
   const top = focus
   const working = running.length
   const hour = new Date().getHours(), hello = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening'
-  const line = top ? `${hello}, boss. One thing when you have a minute.`
-    : working ? `${hello}, boss. Nothing needs you. ${working === 1 ? 'One thing is' : `${working} things are`} running.` : `${hello}, boss. All quiet.`
+  const line = top ? `${hello}, ${call}. One thing when you have a minute.`
+    : working ? `${hello}, ${call}. Nothing needs you. ${working === 1 ? 'One thing is' : `${working} things are`} running.` : `${hello}, ${call}. All quiet.`
   const done = (who: string) => { setSettled(`${who} has it from here`); refresh(); setTimeout(() => setSettled(null), 6000) }
 
   const ask = (text: string) => { if (!home) return onToast('Goddard is waking up'); sayTo(home.port, text).then(() => { setPlans(false); onToast('Goddard has it') }, e => onToast((e as Error).message)) }
@@ -102,7 +104,7 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
   if (chat) return <GoddardChat thread={home} onBack={() => setChat(false)} onToast={onToast} />
   if (sched) return <Schedules onBack={() => setSched(false)} />
   if (signin) return <SignIn onBack={() => setSignin(false)} onToast={onToast} />
-  if (setup) return <Setup onBack={() => setSetup(false)} onPack={() => { setSetup(false); onPack() }} onToast={onToast} />
+  if (setup) return <Setup onBack={() => { setSetup(false); readProfile() }} onPack={() => { setSetup(false); onPack() }} onToast={onToast} />
   if (plans) return <section className="calm"><PlansView onBack={() => setPlans(false)} onAsk={ask} /></section>
 
   return (

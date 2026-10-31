@@ -1546,8 +1546,10 @@ Bun.serve({
       const used = boards.map(x => x.b.artifact + ' ' + x.b.sheet.map(r => r.value).join(' ')).join(' ')
       for (const e of loadLibrary().filter(e => e.source === 'upload' && Date.now() - e.at < 3 * 86400_000 && e.path && !used.includes(basename(e.path))).sort((a, b) => b.at - a.at).slice(0, 2))
         ideas.push({ title: e.title.startsWith('voice') ? 'Your voice note' : e.title, why: `you added it ${new Date(e.at).toLocaleDateString('en-US', { weekday: 'long' })}, not worked yet`, brought: `📎 ${e.title}: ${e.path}`, want: '', from: 'upload' })
-      try {
-        const ts = JSON.parse(readFileSync(home('~/gmcarl/tools/gm-os/task-suggest.json'), 'utf8')) as { tasks?: { task: string; why: string }[] }
+      // goal suggestions from the owner's own task file, when their profile names one (memory.goals)
+      const goals = has('memory') ? profile().memory?.goals : undefined
+      if (goals) try {
+        const ts = JSON.parse(readFileSync(home(goals), 'utf8')) as { tasks?: { task: string; why: string }[] }
         for (const t of (ts.tasks ?? []).slice(0, 2)) ideas.push({ title: t.task, why: t.why, brought: t.task, want: t.why, from: 'goals' })
       } catch {}
       return Response.json({ ok: true, ideas: ideas.slice(0, 6) })

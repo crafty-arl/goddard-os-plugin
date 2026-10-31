@@ -36,6 +36,8 @@ const statusOf = (t: Thread) => (t.needsYou ? 'Needs you' : t.busy ? t.doing || 
 const phaseOf = (t: Thread) => (t.needsYou || !t.busy ? 2 : 1)
 
 export function LiveApp({ list, wide, refresh, stale }: { list: DoorList; wide: boolean; refresh: () => void; stale?: boolean }) {
+  const [call, setCall] = useState('boss') // what the dogs call the owner, from their profile
+  useEffect(() => { fetch('/door/api/profile').then(r => r.json()).then(j => { if (j.profile?.owner?.call) setCall(j.profile.owner.call) }, () => {}) }, [])
   const agents = list.threads.filter(t => !t.home)
   const home = list.threads.find(t => t.home)
   const [view, setView] = useState<View>({ kind: 'home' })
@@ -214,7 +216,7 @@ export function LiveApp({ list, wide, refresh, stale }: { list: DoorList; wide: 
     preview={key => { if (key.startsWith('v:')) return <VisitorCard s={others.find(o => 'v:' + o.id === key)} />; const e = key === 'home' ? undefined : latestFor(taskFor(Number(key))?.id); return e ? <LivePreview e={e} onOpen={setViewing} /> : null }} />
 
   // greet by the clock, and say what's true: how many dogs are actually working
-  const hr = new Date().getHours(), hello = hr < 5 ? 'Late one, boss.' : hr < 12 ? 'Morning, boss.' : hr < 17 ? 'Afternoon, boss.' : 'Evening, boss.'
+  const hr = new Date().getHours(), hello = `${hr < 5 ? 'Late one' : hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening'}, ${call}.`
   const busyN = agents.filter(a => a.busy).length
   const greeting = agents.some(a => a.needsYou) ? `${hello} One thing when you have a minute.` : busyN ? `${hello} ${busyN} working.` : `${hello} The pack is resting.`
 

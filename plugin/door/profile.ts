@@ -13,7 +13,7 @@ import { STATE_DIR } from './common'
 
 export interface Profile {
   owner: { name: string; call: string; studio?: string } // the owner's name, what the dogs call them, their studio's name
-  memory?: { on: boolean; path: string }          // a folder of notes the dogs read (a "mind")
+  memory?: { on: boolean; path: string; goals?: string } // a folder of notes the dogs read (a "mind"), and a task-suggestions file for Pick up
   dogComputer?: {                                  // a computer the dogs can drive (browser, screen, shell)
     on: boolean
     kind: 'proxmox-vm' | 'this-mac'
