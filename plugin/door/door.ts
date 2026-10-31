@@ -366,6 +366,8 @@ async function launch(port: number, { dir, name, env, args, bg }: Launch, resume
     '#!/bin/zsh -l',
     `# GM! thread "${name.replace(/\n/g, ' ')}" on port ${port}, started from the front door.`,
     `cd ${sh(dir)} || exit 1`,
+    // each dog is its own session, not one nested inside whatever Claude Code session started Goddard OS
+    'unset CLAUDECODE',
     ...Object.entries(all).map(([k, v]) => `export ${k}=${sh(v)}`),
     // resume: Home's own conversation by its id, never "the newest one in the folder" (--continue would
     // pick up any other Claude session that ran in ~/gm-mind). First start creates it with that id.
