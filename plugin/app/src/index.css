@@ -1161,3 +1161,10 @@ span.scv-p { cursor: default }
 .sess-live, .sess-live li, .talk-latest, .scv-trail li, .talk-fold { animation: softIn .45s ease both }
 .scv-rail > .scv-now { animation: softIn .45s ease both }
 @media (prefers-reduced-motion: reduce) { .sess-live, .sess-live li, .talk-latest, .scv-trail li, .talk-fold, .scv-rail > .scv-now { animation: none } }
+/* an older grouped reply: the same shape, smaller and quieter than the newest */
+.sess-msg.old-grouped { align-self: stretch; max-width: none; padding: 12px 14px }
+.old-grouped .talk-grouped { gap: 8px }
+.old-grouped .talk-lead { font-size: 16px }
+.old-grouped .talk-ask { border-color: #4A3E2A; background: #14110C }
+.old-grouped .talk-ask p, .old-grouped .talk-group p { font-size: 14px }
+.old-grouped .talk-group { padding: 8px 12px }

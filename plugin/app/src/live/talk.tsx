@@ -203,7 +203,14 @@ export function Talk({ msgs, who, choices, onPick, busy, note }: {
   msgs: TalkMsg[]; who: string; choices: string[]; onPick: (c: string) => void; busy: boolean; note?: (m: TalkMsg) => string | null
 }) {
   const b = useBionic()
-  const plainMsg = (m: TalkMsg) => { const n = note?.(m); return n ? <p key={m.id} className="sess-note">{n}</p> : <div key={m.id} className={'sess-msg ' + (m.from === 'user' ? 'me' : 'dog')}>{rich(m.text, b && m.from !== 'user')}</div> }
+  // older replies keep the grouped shape too (Carl, 2026-10-31), just quieter: no answer buttons, no pacing
+  const plainMsg = (m: TalkMsg) => {
+    const n = note?.(m)
+    if (n) return <p key={m.id} className="sess-note">{n}</p>
+    const g = m.from === 'assistant' ? grouped(m.text) : null
+    if (g) return <div key={m.id} className="sess-msg dog old-grouped"><GroupedReply g={g} b={b} choices={[]} onPick={onPick} shown={Infinity} done /></div>
+    return <div key={m.id} className={'sess-msg ' + (m.from === 'user' ? 'me' : 'dog')}>{rich(m.text, b && m.from !== 'user')}</div>
+  }
   const ps = parts(msgs), last = msgs[msgs.length - 1]
   return (
     <>
