@@ -143,7 +143,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
         {/* zone 1: the HUD */}
         <header className="scv-hud">
           <button className="scv-p" onClick={() => setScreen(false)} aria-label="Back to the chat view">←</button>
-          <b className="scv-title">{sessionTitle(thread)}</b>
+          <b className="scv-title">{sessionTitle(thread)}<small> · on the dog computer</small></b>
           <span className="scv-p"><i className={'scv-dot' + (live.busy.on ? ' live' : '')} aria-hidden="true" />{live.busy.on ? 'Live' : 'Idle'}{thread.slot ? ` · screen ${thread.slot}` : ''}</span>
           <span className="scv-grow" />
           {b && <button className="scv-p" onClick={() => { setScreen(false); setDrawer(true) }} aria-label="Open the plan">
@@ -169,6 +169,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
           <div className="scv-chat" role="log">{msgs.slice(-8).map(msgEl)}<div ref={end} /></div>
           {askEl}
           {choicesEl}
+          <button className={'scv-wheel' + (typing ? ' on' : '')} onClick={() => { setTyping(t => !t); setKeyErr('') }} aria-pressed={typing}>{typing ? 'Hand it back' : 'Take the wheel'}</button>
           {composer}
         </div>
       </section>
