@@ -9,6 +9,7 @@ import { decode, findOutputs, OutputStrip, PlanCards, type Output } from './outp
 import type { ReactNode } from 'react'
 import { dogName, isSlot } from './slots'
 import { PlansView } from './PlansView'
+import { grouped } from './talk'
 import { SessionStart, SessionView, type Carry } from './Session'
 import { Schedules } from './Schedules'
 import { Setup } from './Setup'
@@ -92,7 +93,8 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
   const pickup = real.filter(t => !t.needsYou && !running.includes(t) && !isDone(t))
   const finished = real.filter(isDone)
   // a session's own question, in one line, for its Needs you card
-  const askOf = (port: number) => { const t = threads.find(x => x.port === port); return t?.last.text && t.last.text !== 'Replied' ? cut(plain(t.last.text), 140) : '' }
+  // a grouped reply shows its one question here; anything else, its first words
+  const askOf = (port: number) => { const t = threads.find(x => x.port === port); if (!t?.last.text || t.last.text === 'Replied') return ''; const g = grouped(t.last.text); return cut(plain(g?.ask || g?.lead || t.last.text), 140) }
   const top = focus
   const working = running.length
   const hour = new Date().getHours(), hello = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening'

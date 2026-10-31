@@ -12,7 +12,7 @@ const docOf = (path: string): Output => ({ kind: 'file', path, type: 'md', name:
 import { linkify } from './ChatPanel'
 import { Attach, Voice, grow } from './dock'
 import { DogScreen, Keys, usesDogComputer } from './DogScreen'
-import { Talk, rich } from './talk'
+import { Talk, rich, grouped, useBionic, setBionic } from './talk'
 
 const DRAFT = 'goddard.session-draft'
 
@@ -101,6 +101,11 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
   // only Plan it fills in suggestions of its own; a chat or a job shows the dog's, when it gave some
   const choices = last?.from === 'assistant' ? (last.choices?.length ? last.choices : mode === 'plan' ? FALLBACK : []) : []
   const [switching, setSwitching] = useState(false)
+  const bionic = useBionic()
+  // Focus mode: one question on the screen, everything else gone, pings held on the door until it ends
+  const [focusUntil, setFocusUntil] = useState(0)
+  const focusFor = (minutes: number) => fetch('/door/api/focus', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ minutes }) })
+    .then(r => r.json()).then((j: { until: number }) => setFocusUntil(j.until || 0), () => setFocusUntil(minutes ? Date.now() + minutes * 60000 : 0))
   const switchTo = (m: SessionMode) => { setSwitching(false); if (m === mode || !thread) return
     setSessionMode(thread.port, m).then(() => onToast(`Switched to ${modeLabel(m)}`), e => onToast((e as Error).message)) }
   const b = thread?.board
@@ -125,6 +130,8 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
       <button type="submit" disabled={!draft.trim()} aria-label="Send">↑</button>
     </form>
   )
+  if (focusUntil > Date.now()) return <FocusView thread={thread} until={focusUntil} last={last?.from === 'assistant' ? last.text : ''} choices={perm ? [] : choices} busy={live.busy.on}
+    doing={live.busy.text ?? thread.doing} onPick={say} onExit={() => focusFor(0)} onEnd={() => setFocusUntil(0)} />
   if (showScreen) {
     const done = b?.done ?? [], met = done.filter(d => d.met).length
     const left = thread.auto ? Math.max(0, Math.round((thread.auto.until - Date.now()) / 60000)) : null
@@ -174,7 +181,11 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
         <h1>{sessionTitle(thread)}</h1>
         <button className="calm-quiet" onClick={() => confirm(mode === 'plan' ? 'End this session? The sheet is saved as a document in your Library.' : 'End this chat?') && endSession(thread.port).then(r => { if (r.path) onToast('Saved the sheet to your Library'); onBack() }, e => onToast((e as Error).message))}>End</button>
       </header>
-      <ModeBar mode={mode} open={switching} onToggle={() => setSwitching(v => !v)} onPick={switchTo} />
+      <div className="sess-tools">
+        <ModeBar mode={mode} open={switching} onToggle={() => setSwitching(v => !v)} onPick={switchTo} />
+        <button className={'sess-tool' + (bionic ? ' on' : '')} aria-pressed={bionic} onClick={() => setBionic(!bionic)}>Bionic</button>
+        <button className="sess-tool fo" onClick={() => focusFor(25)}>Focus ◎</button>
+      </div>
       {/* on a phone the board is an off-screen drawer: one slim bar shows where you are, a tap slides the plan in */}
       {mode === 'plan' && <button className="sess-planbar" onClick={() => setDrawer(true)} aria-expanded={drawer} aria-controls="sess-board">
         <span className="sess-planbar-what">{thread.auto ? `Auto · ${Math.max(0, Math.round((thread.auto.until - Date.now()) / 60000))} min left · ` : ''}{b ? (b.finished || b.now >= b.phases.length ? '✓ Done' : `Phase ${b.now + 1} of ${b.phases.length} · ${b.phases[b.now]}`) : live.busy.on || msgs.length < 2 ? 'Setting up' : 'No plan yet'}</span>
@@ -326,5 +337,45 @@ function ModeBar({ mode, open, onToggle, onPick }: { mode: SessionMode; open: bo
         <button key={m.id} role="menuitemradio" aria-checked={mode === m.id} className={mode === m.id ? 'on' : ''} onClick={() => onPick(m.id)}><b>{m.label}</b><span>{m.line}</span></button>
       ))}</div>}
     </div>
+  )
+}
+
+// Focus mode (the mock's screen 5): the dog's one current question fills the screen with its answers and the talk
+// box; the timer, the way out, and a quiet line saying pings are held. Nothing else from the app is on screen.
+function FocusView({ thread, until, last, choices, busy, doing, onPick, onExit, onEnd }: {
+  thread: Thread; until: number; last: string; choices: string[]; busy: boolean; doing?: string
+  onPick: (t: string) => void; onExit: () => void; onEnd: () => void
+}) {
+  const [now, setNow] = useState(Date.now())
+  const [draft, setDraft] = useState('')
+  const [held, setHeld] = useState(0)
+  const [leaving, setLeaving] = useState(false)
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id) }, [])
+  useEffect(() => { const get = () => fetch('/door/api/focus').then(r => r.json()).then((j: { held: number }) => setHeld(j.held ?? 0), () => {}); get(); const id = setInterval(get, 15000); return () => clearInterval(id) }, [])
+  useEffect(() => { if (now >= until) onEnd() }, [now, until])
+  const left = Math.max(0, until - now), mins = Math.ceil(left / 60000)
+  const g = last ? grouped(last) : null
+  const lines = last ? last.split('\n').map(l => l.replace(/[*#_`]/g, '').trim()).filter(Boolean) : []
+  const question = g?.ask || [...lines].reverse().find(l => l.endsWith('?')) || g?.lead || lines[0] || ''
+  const exit = () => { setLeaving(true); setTimeout(onExit, 420) }
+  const send = (t: string) => { if (t.trim()) { onPick(t.trim()); setDraft('') } }
+  return (
+    <section className={'fmode' + (leaving ? ' leaving' : '')} aria-label={`Focus: ${sessionTitle(thread)}`}>
+      <i className="focus-glow" aria-hidden="true" />
+      <header className="focus-top">
+        <span className="focus-timer"><span className="focus-dot" aria-hidden="true"><i /></span>Focus · {mins} min left</span>
+        <button onClick={exit}>Exit focus</button>
+      </header>
+      <div className="focus-main">
+        <span className="focus-what">{sessionTitle(thread)} · {busy ? 'working' : 'one question'}</span>
+        {busy ? <p className="focus-q working">{STEP_PLAIN(doing || 'Thinking it over')}…</p> : <p className="focus-q">{question || 'Your turn.'}</p>}
+        {!busy && choices.length > 0 && <div className="focus-picks">{choices.map((c, i) => <button key={c} style={{ animationDelay: `${0.35 + i * 0.1}s` }} onClick={() => send(c)}>{c}</button>)}</div>}
+      </div>
+      <form className="focus-say" onSubmit={e => { e.preventDefault(); send(draft) }}>
+        <input value={draft} onChange={e => setDraft(e.target.value)} placeholder="Say it…" aria-label="Your answer" />
+        <button type="submit" disabled={!draft.trim()} aria-label="Send">↑</button>
+      </form>
+      <p className="focus-held">{held ? `${held} ${held === 1 ? 'thing is' : 'things are'} waiting. ` : ''}Pings are held until you're done.</p>
+    </section>
   )
 }

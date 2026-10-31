@@ -1050,3 +1050,61 @@ span.scv-p { cursor: default }
 /* Home scrolls inside the phone frame (the frame is fixed and clips), and the chat bar stays in reach at the bottom */
 .app > section.calm { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch }
 .app > section.calm > .calm-chatbtn { position: sticky; bottom: 0; flex: none; box-shadow: 0 -18px 24px 6px #0B0A08 }
+
+/* the chat's tools row: mode, Bionic, Focus */
+.sess-tools { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap }
+.sess-tools .sess-modebar { flex: 1 }
+.sess-tool { min-height: 36px; padding: 6px 14px; border-radius: 18px; border: 1px solid #3A352D; background: transparent; color: #CFC8BA; font: 600 13px Inter, system-ui, sans-serif; cursor: pointer; transition: background .25s, color .25s, border-color .25s, transform .2s }
+.sess-tool.on { background: #D79B45; border-color: #D79B45; color: #0B0A08 }
+.sess-tool.fo { border-color: #D79B45; color: #D79B45 }
+.sess-tool:active { transform: scale(.96) }
+
+/* Bionic reading */
+.bio b { font-weight: 800; color: #FFFFFF }
+.bio { color: #B9B2A4 }
+.sess-msg.me .bio, .sess-msg.me .bio b { color: inherit; font-weight: inherit }
+
+/* a reply in groups */
+@keyframes grpRise { from { opacity: 0; transform: translateY(12px); filter: blur(3px) } to { opacity: 1; transform: none; filter: none } }
+.talk-grouped { display: flex; flex-direction: column; gap: 12px }
+.talk-grouped > * { animation: grpRise .5s cubic-bezier(.2,.8,.2,1) backwards }
+.talk-grouped > :nth-child(2) { animation-delay: .08s } .talk-grouped > :nth-child(3) { animation-delay: .16s } .talk-grouped > :nth-child(n+4) { animation-delay: .24s }
+.talk-lead { margin: 0; font-size: 19px; line-height: 1.35; font-weight: 600 }
+.talk-ask { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid #D79B45; background: #1A160F }
+.talk-ask > span, .talk-group > span { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #D79B45 }
+.talk-ask p { margin: 0; font-size: 16px; line-height: 1.45 }
+.talk-group { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-radius: 14px; background: #110F0C; border: 1px solid #2A2620 }
+.talk-group.done > span { color: #8FBF7A } .talk-group.left > span, .talk-group.where > span { color: #9C968A } .talk-group.next > span { color: #CFC8BA }
+.talk-group p { margin: 0; font-size: 15px; line-height: 1.45 }
+.talk-more { align-self: flex-start; padding: 6px 0; border: 0; background: none; color: #9C968A; font: 500 13px Inter, system-ui, sans-serif; cursor: pointer }
+.talk-latest.grouped { border-color: #2A2620 }
+
+/* Focus mode (the mock's screen 5, in motion) */
+@keyframes fcRise { from { opacity: 0; transform: translateY(28px) scale(.96); filter: blur(6px) } to { opacity: 1; transform: none; filter: none } }
+@keyframes fcDrop { from { opacity: 0; transform: translateY(-16px) } to { opacity: 1; transform: none } }
+@keyframes fcBreathe { 0%, 100% { transform: scale(1); opacity: .55 } 50% { transform: scale(2.4); opacity: 0 } }
+@keyframes fcDrift { 0% { transform: translate(-30px, -20px) scale(1) } 50% { transform: translate(30px, 25px) scale(1.15) } 100% { transform: translate(-30px, -20px) scale(1) } }
+@keyframes fcNudge { 0%, 100% { opacity: .55 } 50% { opacity: 1 } }
+.fmode { position: fixed; inset: 0; z-index: 950; background: #0B0A08; color: #F1EEE7; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column; gap: 14px; overflow: hidden;
+  padding: calc(18px + env(safe-area-inset-top)) 22px calc(18px + env(safe-area-inset-bottom)) }
+.focus-glow { position: absolute; left: 50%; top: 42%; width: 340px; height: 340px; margin: -170px 0 0 -170px; border-radius: 50%; background: radial-gradient(circle, rgba(215,155,69,.2), rgba(215,155,69,0) 70%); pointer-events: none; animation: fcDrift 9s ease-in-out infinite }
+.focus-top { position: relative; display: flex; align-items: center; justify-content: space-between; animation: fcDrop .6s .1s cubic-bezier(.2,.8,.2,1) backwards }
+.focus-timer { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px 8px 12px; border-radius: 18px; background: #1A160F; border: 1px solid #3A3020; font-size: 13px; font-weight: 600; color: #D79B45 }
+.focus-dot { position: relative; width: 8px; height: 8px } .focus-dot::before, .focus-dot i { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #D79B45 } .focus-dot i { animation: fcBreathe 2.4s ease-out infinite }
+.focus-top button { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #3A352D; background: transparent; color: #CFC8BA; font: 600 13px Inter, system-ui, sans-serif; cursor: pointer }
+.focus-main { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 18px; min-height: 0 }
+.focus-what { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #9C968A; animation: fcRise .6s .3s cubic-bezier(.2,.8,.2,1) backwards }
+.focus-q { margin: 0; font: 700 clamp(24px, 7.5vw, 34px)/1.25 'Playfair Display', Georgia, serif; animation: fcRise .8s .15s cubic-bezier(.2,.8,.2,1) backwards }
+.focus-q.working { color: #CFC8BA; font-size: clamp(20px, 6vw, 26px) }
+.focus-picks { display: flex; flex-direction: column; gap: 8px }
+.focus-picks button { min-height: 48px; text-align: left; padding: 10px 18px; border-radius: 24px; border: 1px solid #3A352D; background: transparent; color: #F1EEE7; font: 600 15px Inter, system-ui, sans-serif; cursor: pointer;
+  animation: fcRise .6s cubic-bezier(.2,.8,.2,1) backwards; transition: transform .25s cubic-bezier(.2,.8,.2,1), background .25s, border-color .25s }
+.focus-picks button:hover { transform: translateX(6px); border-color: #D79B45; background: #1A160F }
+.focus-picks button:active { transform: scale(.97) }
+.focus-say { position: relative; display: flex; gap: 8px; align-items: center; padding: 6px 6px 6px 18px; border-radius: 28px; border: 1px solid #3A352D; background: #12110D; animation: fcRise .6s .7s cubic-bezier(.2,.8,.2,1) backwards }
+.focus-say input { flex: 1; min-width: 0; min-height: 44px; border: 0; background: transparent; color: #F1EEE7; font: 16px Inter, system-ui, sans-serif; outline: none }
+.focus-say button { width: 44px; height: 44px; border-radius: 22px; border: 0; background: #D79B45; color: #0B0A08; font-size: 18px; cursor: pointer }
+.focus-say button:disabled { background: #2A2620; color: #6E675B }
+.focus-held { position: relative; margin: 0; text-align: center; font-size: 12px; color: #9C968A; animation: fcNudge 3.2s ease-in-out infinite }
+.fmode.leaving > * { transition: opacity .4s ease, transform .45s cubic-bezier(.2,.8,.2,1), filter .4s; opacity: 0; transform: scale(.94); filter: blur(8px) }
+@media (prefers-reduced-motion: reduce) { .talk-grouped > *, .fmode *, .focus-glow { animation: none !important; transition: none !important } }

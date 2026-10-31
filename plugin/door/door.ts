@@ -58,7 +58,8 @@ function coreRole(d: { name: string; skill: string; job: string }) {
   return [`# ${d.name}`, '', '## Who you are', `You are ${d.name}, a dog in Goddard's pack at the GM! Carl studio: ${d.job}.`, '',
     '## Your job', `Every job you get is a ${d.skill} job. Load the ${d.skill} skill with the Skill tool first and follow it exactly. It is your rulebook.`, '',
     '## How you work', '- Before step 1, post a plan of 3 to 7 steps with the gm-chat plan tool, then wait for Carl\'s Go.', '- Mark each step with the step tool as you start it.',
-    '- Drafts first. Finals only after Carl\'s OK.', '- Report with the gm-chat reply tool. Keep it short.', '',
+    '- Drafts first. Finals only after Carl\'s OK.', '- Report with the gm-chat reply tool. Keep it short.',
+    '- Shape every reply: first line is the result in one sentence, then only the parts that apply, each a label line with short bullets: **Needs you:** (one question, with choices), **Done:**, **Left for you:**, **Where:** (links or paths). Longer detail goes after.', '',
     '## Never', '- Nothing paid, public or live without Carl\'s clear OK.', '- Never message anyone but Carl.', '- Never invent facts, people, prices or dates.',
     '- Keep GM! work apart from Carl\'s day job.', '- No secrets in files.', '',
     '## Hand off', '- A job that belongs to another dog in the pack: say so, and Goddard (the main chat) passes it on.', ''].join('\n')
@@ -762,8 +763,18 @@ const quietHours = () => { const [from, to] = profile().pings?.quiet ?? [23, 7],
 // Gentle pings (Carl, 2026-10-28: "everything is yelling at me"): at most one an hour. Whatever comes up in between
 // waits and goes out as one digest ("2 things ready when you are"). A dog blocked on a permission breaks through.
 let lastPush = 0, held: string[] = [], flushTimer: ReturnType<typeof setTimeout> | null = null
+// Focus mode (Carl, 2026-10-30: "cutting off the other areas as distractions"): until this time pings wait, then the
+// held ones go out as one digest the moment focus ends
+let focusUntil = 0, focusHeld: string[] = []
+const focusing = () => Date.now() < focusUntil
+function endFocus() {
+  focusUntil = 0
+  const names = focusHeld; focusHeld = []
+  if (names.length) void notify(names.length === 1 ? `${names[0]} is ready when you are` : `${names.length} things ready when you are`, names.join(', '), 'digest')
+}
 async function gentle(who: string, title: string, body: string, tag: string) {
   if (quietHours() || !has('pings')) return
+  if (focusing()) { if (!focusHeld.includes(who)) focusHeld.push(who); return }
   if (Date.now() - lastPush >= 60 * 60_000) return notify(title, body, tag)
   if (!held.includes(who)) held.push(who)
   if (!flushTimer) flushTimer = setTimeout(() => {
@@ -1429,6 +1440,14 @@ Bun.serve({
       return Response.json(await testPart(String(b.part ?? ''), b.value ?? {}))
     }
     if (url.pathname === '/api/digest' && req.method === 'GET') return Response.json(await digest())
+    if (url.pathname === '/api/focus' && req.method === 'GET') return Response.json({ until: focusing() ? focusUntil : 0, held: focusHeld.length })
+    if (url.pathname === '/api/focus' && req.method === 'POST') {
+      if (req.headers.get('origin') && new URL(req.headers.get('origin')!).host !== url.host) return new Response('no', { status: 403 })
+      const b = await req.json().catch(() => ({})) as { minutes?: number }
+      const m = Math.max(0, Math.min(180, Number(b.minutes) || 0))
+      if (m) { focusUntil = Date.now() + m * 60_000; setTimeout(() => { if (!focusing() && focusUntil) endFocus() }, m * 60_000 + 1000) } else endFocus()
+      return Response.json({ until: focusUntil, held: focusHeld.length })
+    }
     if (url.pathname === '/api/plans' && req.method === 'GET') return Response.json({ plans: loadPlans() })
     if (url.pathname === '/api/plans' && req.method === 'POST') {
       try {
