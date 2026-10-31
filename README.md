@@ -34,7 +34,7 @@ instead (open it from Spotlight). Paste these one at a time:
    ```
    curl -fsSL https://claude.ai/install.sh | bash
    ```
-2. Open a new Terminal window, run `claude`, sign in with your Claude account, then type `/exit`. (Bun and Node are needed too, see "Before you start".)
+2. Open a new Terminal window, run `claude`, sign in with your Claude account, then type `/exit`. (It also needs Bun and Node: see Needs below.)
 3. Add and install the plugin:
    ```
    claude plugin marketplace add crafty-arl/goddard-os-plugin
