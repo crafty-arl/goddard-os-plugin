@@ -115,7 +115,24 @@ Both are optional:
 - **A drive for big files:** where it mounts, for example `/Volumes/MyDrive`. The dogs can read it and add files,
   but deleting or overwriting anything there asks you first.
 
-Tap **Save setup**. Goddard, the main chat, starts in the background, and Home opens.
+Tap **Save setup**. Home opens.
+
+<br clear="right">
+
+<img src="screens/0-trust-step.png" width="260" align="right" alt="Home asking for the one-time trust step">
+
+### One last step: let Claude Code work in your folder
+
+The first time, Home shows **One step before your dogs can start**. Claude Code only runs background sessions in a
+folder you've said it may use, and only you can say yes. On the Mac, open Terminal and run the line Home shows, for
+example:
+
+```
+cd ~/Goddard && claude
+```
+
+Choose **Yes, I trust this folder**, type `/exit`, and tap **I did it**. Goddard, the main chat, starts within two
+minutes. **Test this Mac** in Setup step 1 checks this too.
 
 <br clear="right">
 
@@ -157,6 +174,8 @@ list can get in, and removing a device signs it out at once.
 | --- | --- |
 | `✕ Bun is missing` (or Node, or Claude Code) | Install what it names, then run `/goddard-os:start` again. |
 | The **Locked** screen on the Mac | Run `/goddard-os:start` again. It signs this Mac's browser in. |
+| "Goddard is waking up…" for more than two minutes | Do the one-time trust step above (Home shows the exact line). |
+| `✕ Another app is using port 5173` | Stop that app, or start on another port: `GODDARD_APP_PORT=5180` before the start command. |
 | "Blocked request" on your phone | Use the Mac's IP address, not its name. For an https address, put it in Setup step 2 and restart. |
 | Setup's **Test it** shows ✕ | It says what's wrong in plain words, such as "The host should look like user@address." Fix that and test again. |
 | The app didn't start | Look in `~/Library/Logs/goddard-os.log`. |
