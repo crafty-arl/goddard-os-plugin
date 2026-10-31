@@ -41,41 +41,45 @@ export function useReveal(id: string, ts: number, total: number): [number, () =>
   const [n, setN] = useState(fresh ? 0 : total)
   useEffect(() => {
     if (!fresh) { setN(total); return }
-    const per = 60_000 / WPM[pace], step = Math.max(1, Math.round(70 / per)) // a tick every ~70ms, as many words as the pace allows
-    const id2 = setInterval(() => setN(v => { const next = Math.min(total, v + step); if (next >= total) { clearInterval(id2); shownWhole.add(id) } return next }), Math.max(40, per * step))
+    // smooth: the count follows the clock (not fixed jumps), and each word fades in on its own
+    const t0 = performance.now(), wpm = WPM[pace]
+    const id2 = setInterval(() => {
+      const next = Math.min(total, Math.floor((performance.now() - t0) * wpm / 60_000) + 1)
+      setN(next); if (next >= total) { clearInterval(id2); shownWhole.add(id) }
+    }, 40)
     return () => clearInterval(id2)
   }, [id, total, fresh, pace])
   return [n, () => { shownWhole.add(id); setN(total) }]
 }
-// the first n words of a text, keeping its line breaks and spacing
-function clip(t: string, n: number): string {
-  if (n <= 0) return ''
-  let seen = 0, out = ''
-  for (const m of t.matchAll(/(\s*)(\S+)/g)) { if (seen >= n) break; out += m[1] + m[2]; seen++ }
-  return out
-}
-function bio(t: string, k: string): ReactNode[] {
+// while a reply comes in, every word is already laid out (so nothing jumps) and the ones not reached yet are clear;
+// rev counts words in reading order across the whole reply
+type Rev = { i: number; shown: number } | null
+function words(t: string, k: string, b: boolean, rev: Rev): ReactNode[] {
+  if (!b && !rev) return [t]
   return t.split(/(\s+)/).map((w, i) => {
     const letters = w.replace(/[^\p{L}\p{N}]/gu, '').length
-    if (!letters) return w
+    if (!w.trim()) return w
+    const pend = rev ? rev.i++ >= rev.shown : false
+    const cls = (b && letters ? 'bio' : 'w') + (pend ? ' pw' : rev ? ' in' : '')
+    if (!b || !letters) return <span key={k + 'w' + i} className={cls}>{w}</span>
     const n = letters <= 3 ? 1 : Math.ceil(letters * 0.45)
-    return <span key={k + 'w' + i} className="bio"><b>{w.slice(0, n)}</b>{w.slice(n)}</span>
+    return <span key={k + 'w' + i} className={cls}><b>{w.slice(0, n)}</b>{w.slice(n)}</span>
   })
 }
 // one line of text: links and **bold** (single *, _ and ` marks are dropped, not shown)
-function inline(t: string, k: string, b = false): ReactNode[] {
+function inline(t: string, k: string, b = false, rev: Rev = null): ReactNode[] {
   return t.split(/(\*\*[^*]+\*\*)/g).flatMap((p, i): ReactNode[] => {
-    if (/^\*\*[^*]+\*\*$/.test(p)) return [<b key={k + 'b' + i}>{p.slice(2, -2)}</b>]
+    if (/^\*\*[^*]+\*\*$/.test(p)) return [<b key={k + 'b' + i}>{words(p.slice(2, -2), k + 'b' + i, false, rev)}</b>]
     return p.replace(/(^|\s)[*_](\S[^*_]*?)[*_](?=\s|$|[.,!?])/g, '$1$2').replace(/`/g, '').split(LINK)
-      .flatMap((s, j): ReactNode[] => /^https?:\/\//.test(s) ? [<a key={k + i + 'a' + j} href={s} target="_blank" rel="noreferrer">{s}</a>] : b ? bio(s, k + i + 'x' + j) : [s])
+      .flatMap((s, j): ReactNode[] => /^https?:\/\//.test(s) ? [<a key={k + i + 'a' + j} href={s} target="_blank" rel="noreferrer" className={rev && rev.i++ >= rev.shown ? 'pw' : undefined}>{s}</a>] : words(s, k + i + 'x' + j, b, rev))
   })
 }
 
 // a message as blocks: paragraphs, bullet or numbered lists, and headings shown as bold lines
-export function rich(text: string, b = false): ReactNode {
+export function rich(text: string, b = false, rev: Rev = null): ReactNode {
   const lines = decode(text).split('\n'), out: ReactNode[] = []
   let list: { ordered: boolean; items: string[] } | null = null
-  const flush = () => { if (!list) return; const L = list.ordered ? 'ol' : 'ul'; out.push(<L key={'l' + out.length}>{list.items.map((x, i) => <li key={i}>{inline(x, `l${out.length}-${i}`, b)}</li>)}</L>); list = null }
+  const flush = () => { if (!list) return; const L = list.ordered ? 'ol' : 'ul'; out.push(<L key={'l' + out.length}>{list.items.map((x, i) => <li key={i}>{inline(x, `l${out.length}-${i}`, b, rev)}</li>)}</L>); list = null }
   for (const raw of lines) {
     const l = raw.trim()
     const bullet = l.match(/^[-*•·]\s+(.*)/), num = l.match(/^\d+[.)]\s+(.*)/)
@@ -83,7 +87,7 @@ export function rich(text: string, b = false): ReactNode {
     flush()
     if (!l) continue
     const h = l.match(/^#{1,6}\s+(.*)/)
-    out.push(<p key={'p' + out.length}>{h ? <b>{h[1]}</b> : inline(l, 'p' + out.length, b)}</p>)
+    out.push(<p key={'p' + out.length}>{inline(h ? h[1] : l, 'p' + out.length, b, rev)}</p>)
   }
   flush()
   return out
@@ -122,23 +126,25 @@ export function grouped(text: string): { lead: string; ask: string; groups: Grou
 }
 function GroupedReply({ g, b, choices, onPick, shown, done }: { g: NonNullable<ReturnType<typeof grouped>>; b: boolean; choices: string[]; onPick: (c: string) => void; shown: number; done: boolean }) {
   const [more, setMore] = useState(false)
-  // the reading order is lead, question, then each group's lines; each part shows as many words as the pace has reached
-  let left = shown
-  const take = (t: string) => { const c = clip(t, left); left -= wordsIn(t); return c }
-  const lead = take(g.lead), ask = g.ask ? take(g.ask) : ''
-  const groups = g.groups.map(x => ({ ...x, items: x.items.map(take).filter(Boolean) })).filter(x => x.items.length)
+  // the whole reply is laid out from the start; words fade in in reading order (lead, question, then each group), and
+  // a group's box fades in with its first word
+  const rev: Rev = done ? null : { i: 0, shown }
+  const at = () => rev ? (rev.i >= rev.shown ? ' pend' : '') : ''
+  const leadEl = inline(g.lead, 'lead', b, rev)
+  const askCls = at(), askEl = g.ask ? inline(g.ask, 'ask', b, rev) : null
+  const groupEls = g.groups.map(x => { const cls = at(); return { x, cls, items: x.items.map((it, i) => inline(it, x.kind + i, b, rev)) } })
+  const choicesEl = choices.length > 0 && <div className={'sess-choices' + (done ? '' : ' pend')} aria-hidden={!done}>{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} disabled={!done} onClick={() => onPick(c)}>{c}</button>)}</div>
   return (
     <div className="talk-grouped">
-      <p className="talk-lead">{inline(lead, 'lead', b)}{!done && !ask && !groups.length && <i className="talk-caret" aria-hidden="true" />}</p>
-      {ask && <section className="talk-ask"><span>Needs you</span><p>{inline(ask, 'ask', b)}</p>
-        {done && choices.length > 0 && <div className="sess-choices">{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} onClick={() => onPick(c)}>{c}</button>)}</div>}</section>}
-      {groups.map(x => <section key={x.kind} className={'talk-group ' + x.kind}><span>{x.label}{x.items.length > 1 ? ` · ${x.items.length}` : ''}</span>
-        {x.items.map((it, i) => <p key={i}>{inline(it, x.kind + i, b)}</p>)}</section>)}
+      <p className="talk-lead">{leadEl}</p>
+      {g.ask && <section className={'talk-ask' + askCls}><span>Needs you</span><p>{askEl}</p>{choicesEl}</section>}
+      {groupEls.map(({ x, cls, items }) => <section key={x.kind} className={'talk-group ' + x.kind + cls}><span>{x.label}{x.items.length > 1 ? ` · ${x.items.length}` : ''}</span>
+        {items.map((it, i) => <p key={i}>{it}</p>)}</section>)}
       {done && g.rest.length > 0 && <>
         <button className="talk-more" aria-expanded={more} onClick={() => setMore(m => !m)}>{more ? 'Less' : 'More detail'} <span aria-hidden="true">{more ? '▴' : '▸'}</span></button>
         {more && <div className="talk-body">{rich(g.rest.join('\n'), b)}</div>}
       </>}
-      {done && !g.ask && choices.length > 0 && <div className="sess-choices">{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} onClick={() => onPick(c)}>{c}</button>)}</div>}
+      {!g.ask && choicesEl}
     </div>
   )
 }
@@ -153,8 +159,8 @@ function Latest({ m, who, b, choices, onPick }: { m: TalkMsg; who: string; b: bo
     <article className={'talk-latest' + (g ? ' grouped' : '') + (done ? '' : ' pacing')} aria-label={`Latest from ${who}`} aria-busy={!done} onClick={done ? undefined : finish}>
       <span className="talk-when">{g ? who : 'Latest'} · {hm(m.ts)}{!done && <span className="talk-skip"> · tap to show all</span>}</span>
       {g ? <GroupedReply g={g} b={b} choices={choices} onPick={onPick} shown={shown} done={done} />
-        : <div className="talk-body">{rich(done ? m.text : clip(decode(m.text), shown), b)}{!done && <i className="talk-caret" aria-hidden="true" />}</div>}
-      {!g && done && choices.length > 0 && <div className="sess-choices">{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} onClick={() => onPick(c)}>{c}</button>)}</div>}
+        : <div className="talk-body">{rich(m.text, b, done ? null : { i: 0, shown })}</div>}
+      {!g && choices.length > 0 && <div className={'sess-choices' + (done ? '' : ' pend')} aria-hidden={!done}>{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} disabled={!done} onClick={() => onPick(c)}>{c}</button>)}</div>}
     </article>
   )
 }

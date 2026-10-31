@@ -1148,3 +1148,16 @@ span.scv-p { cursor: default }
 @media (prefers-reduced-motion: reduce) { .talk-latest.pacing .bio, .talk-caret { animation: none } }
 .sess-tools .sess-modebar { flex: none } .sess-modebar-now { white-space: nowrap }
 .sess-tools { row-gap: 6px } .sess-tool { padding: 6px 12px; white-space: nowrap }
+/* smooth pacing (2026-10-31: "blocky"): everything is laid out from the start, words and boxes only fade in */
+.talk-latest .w, .talk-latest .bio, .talk-latest a { transition: opacity .5s ease }
+.talk-latest .pw { opacity: 0 }
+.talk-latest .pend { opacity: 0; transition: opacity .45s ease }
+.talk-latest .sess-choices, .talk-ask, .talk-group { transition: opacity .45s ease }
+.talk-latest.pacing .bio { animation: none }
+.talk-latest.pacing .talk-grouped > * { animation: none }
+/* one way things stream in, everywhere (2026-10-31: "in conflict with other streamed methods"): a soft fade, no slides
+   or blurs. The thinking box, its steps, the reply card, its words and the dog-screen steps all use it */
+@keyframes softIn { from { opacity: 0 } to { opacity: 1 } }
+.sess-live, .sess-live li, .talk-latest, .scv-trail li, .talk-fold { animation: softIn .45s ease both }
+.scv-rail > .scv-now { animation: softIn .45s ease both }
+@media (prefers-reduced-motion: reduce) { .sess-live, .sess-live li, .talk-latest, .scv-trail li, .talk-fold, .scv-rail > .scv-now { animation: none } }
