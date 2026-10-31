@@ -12,7 +12,7 @@ import { appendFileSync, chmodSync, mkdtempSync, copyFileSync, existsSync, readF
 import { homedir, tmpdir } from 'os'
 import { basename, join, resolve } from 'path'
 import { DOOR_PORT, HEAD, HOST, SESSIONS_DIR, STATE_DIR, TOKEN, gate, isToken, lanAddress } from './common'
-import { profile, has, own, ownFile, mindDir, saveProfile, PROFILE_FILE, type Profile } from './profile'
+import { profile, has, own, ownFile, mindDir, DEFAULT_DIR, saveProfile, PROFILE_FILE, type Profile } from './profile'
 import webpush from 'web-push'
 
 const CONFIG_FILE = join(STATE_DIR, 'door.json')
@@ -221,9 +221,9 @@ type Config = { servers: Box[]; folders: string[]; home: { folder: string } }
 // the owner) adds the rest. An install that already has door.json keeps its own lists.
 const DEFAULTS: Config = {
   servers: [{ name: 'Mac mini' }, ...(profile().dogComputer?.on && profile().dogComputer?.host ? [{ name: 'Dog computer host', ssh: profile().dogComputer!.host! }] : [])],
-  folders: [profile().memory?.on ? profile().memory!.path : '~'],
+  folders: [mindDir()],
   // The Home thread: Carl's one always-open conversation, with Goddard on hand.
-  home: { folder: profile().memory?.on ? profile().memory!.path : '~' },
+  home: { folder: mindDir() },
 }
 if (!existsSync(CONFIG_FILE)) writeFileSync(CONFIG_FILE, JSON.stringify(DEFAULTS, null, 2) + '\n', { mode: 0o600 })
 const config = (): Config => {
@@ -399,6 +399,7 @@ async function start(what: string, serverName: string, folder: string, opts: { b
   if (!box) throw new Error('unknown server')
   if (!cfg.folders.includes(folder)) throw new Error('unknown folder')
   const dir = home(folder)
+  if (!existsSync(dir) && folder === DEFAULT_DIR) mkdirSync(dir, { recursive: true })
   if (!existsSync(dir)) throw new Error(`${folder} isn't on the Mac`)
   const name = (opts.name ?? what).replace(/\s+/g, ' ').trim().slice(0, 48)
   const prompt = box.ssh
@@ -438,6 +439,7 @@ async function startHome(bg = true): Promise<string> {
   // only one Goddard: a background Home that never checked in is stopped before a new one starts
   for (const a of await bgSessions()) if (a.name === 'Home') await stopBg(a.id)
   const dir = home(config().home.folder)
+  if (!existsSync(dir) && config().home.folder === DEFAULT_DIR) mkdirSync(dir, { recursive: true })
   if (!existsSync(dir)) throw new Error(`${config().home.folder} isn't on the Mac`)
   await launch(await freePort(), {
     dir, name: 'Home', env: { GM_CHAT_HOME: '1', GM_CHAT_SERVER: 'Mac mini' },
@@ -1388,8 +1390,8 @@ Bun.serve({
       saveProfile({ ...profile(), ...b, owner: { ...profile().owner, ...b.owner, name: b.owner.name.trim().slice(0, 40) } })
       // the door's folders were written at its first start, before Setup: a notes folder chosen now becomes Home's folder
       const cfg = config(), mem = profile().memory
-      if (mem?.on && mem.path && cfg.home.folder === '~')
-        writeFileSync(CONFIG_FILE, JSON.stringify({ ...cfg, home: { folder: mem.path }, folders: [...new Set([mem.path, ...cfg.folders.filter(f => f !== '~')])] }, null, 2) + '\n', { mode: 0o600 })
+      if (mem?.on && mem.path && (cfg.home.folder === '~' || cfg.home.folder === DEFAULT_DIR))
+        writeFileSync(CONFIG_FILE, JSON.stringify({ ...cfg, home: { folder: mem.path }, folders: [...new Set([mem.path, ...cfg.folders.filter(f => f !== '~' && f !== DEFAULT_DIR)])] }, null, 2) + '\n', { mode: 0o600 })
       logEvent({ type: 'request', by: 'carl', text: 'Setup saved' })
       return Response.json({ ok: true, profile: profile() })
     }

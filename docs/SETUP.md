@@ -42,7 +42,7 @@ Nothing starts a Claude session until you save Setup.
 - **What the dogs call you**, for example "chief" or your first name. Home greets you with it.
 - **Your studio's name** (optional). The dogs use it when they write for you.
 - **A notes folder the dogs read** (optional). Point it at a folder of notes about you and your work, and the dogs
-  read it for context. Home also runs in that folder.
+  read it for context. Home also runs in that folder. Without one, Home and the dogs work in `~/Goddard`.
 - **Test this Mac** checks that Claude Code and Bun are installed.
 
 <br clear="right">

@@ -43,8 +43,10 @@ export function profile(): Profile {
 
 export const has = (m: 'memory' | 'dogComputer' | 'helper' | 'bigDrive' | 'pings') => !!profile()[m]?.on
 
-// the folder Home and the quick helpers run in: the notes folder when there is one, else the home folder (as ~/...)
-export const mindDir = () => (has('memory') && profile().memory!.path) || '~'
+// the folder Home and the quick helpers run in: the notes folder when there is one, else ~/Goddard (Claude Code won't
+// start a background session in the home folder itself)
+export const DEFAULT_DIR = '~/Goddard'
+export const mindDir = () => (has('memory') && profile().memory!.path) || DEFAULT_DIR
 
 export function saveProfile(p: Profile) {
   writeFileSync(PROFILE_FILE, JSON.stringify(p, null, 1) + '\n', { mode: 0o600 })
