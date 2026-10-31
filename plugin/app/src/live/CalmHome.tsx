@@ -131,7 +131,8 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
             <p className="calm-line">{askOf(focus.port) || 'Your session is waiting on you.'}</p>
             <div className="calm-btns"><button className="go" onClick={() => setSess(focus.port)}>Open it</button><button onClick={() => putOff(focus)}>{laterLabel()}</button></div>
           </article>
-        ) : <Card key={focus.key} item={focus} thread={threads.find(t => t.port === focus.port)} onDone={done} onLater={() => putOff(focus)} onToast={onToast} preview={preview} onView={onView} />)}
+        ) : <><Card key={focus.key} item={focus} thread={threads.find(t => t.port === focus.port)} onDone={done} onLater={() => putOff(focus)} onToast={onToast} preview={preview} onView={onView} />
+          {focus.port && <button className="calm-quiet home-open" onClick={() => setSess(focus.port!)}>Open {focus.who}'s chat ›</button>}</>)}
         {items.filter(i => i !== focus).map(i => (
           <button key={i.key} className="home-row" onClick={() => setPicked(i.key)}>
             <i className="home-dot need" aria-hidden="true" /><b>{i.who}</b><span className="muted">waiting {ago(i.at)}</span>
@@ -141,12 +142,19 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
       {running.length > 0 && <section className="home-list" aria-label="Running">
         <span className="home-label">Running · {running.length} · nothing to do</span>
         {running.map(t => (
-          <button key={t.port} className="home-row" onClick={() => isSession(t) ? setSess(t.port) : setChat(t.home ?? false)} disabled={!isSession(t) && !t.home}>
+          <button key={t.port} className="home-row" onClick={() => t.home ? setChat(true) : setSess(t.port)}>
             <i className="home-dot live" aria-hidden="true" /><b>{isSession(t) ? sessionTitle(t) : t.home ? 'Goddard' : dogName(t) ?? 'A dog'}</b>
             <span className="muted">{t.auto ? `Auto · ${Math.max(0, Math.round((t.auto.until - Date.now()) / 60000))} min left` : cut(plain(t.doing || 'working'), 40)}</span>
           </button>
         ))}
       </section>}
+      {/* the dogs by name, words only (no pack, no pictures): a tap opens that dog's chat */}
+      {threads.some(t => isSlot(t) && !running.includes(t) && !items.some(i => i.port === t.port)) && <nav className="home-dogs" aria-label="Your dogs">
+        <span className="home-label">Dogs</span>
+        <div>{threads.filter(t => isSlot(t) && !running.includes(t) && !items.some(i => i.port === t.port)).map(t => (
+          <button key={t.port} onClick={() => setSess(t.port)}>{dogName(t) ?? 'A dog'}</button>
+        ))}</div>
+      </nav>}
       <section className="home-list calm-sessions" aria-label="Pick up">
         <span className="home-label">Pick up</span>
         {/* half-done work first, then what comes next after finished work */}

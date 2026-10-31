@@ -1171,3 +1171,8 @@ span.scv-p { cursor: default }
 /* Sessions only: no town behind Home, no header with the dog head */
 .app.simple .hudtop { display: none }
 .app.simple { background: #0B0A08 }
+.home-dogs { display: flex; flex-direction: column; gap: 8px }
+.home-dogs > div { display: flex; flex-wrap: wrap; gap: 8px }
+.home-dogs button { min-height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #2A2620; background: #12110D; color: #F1EEE7; font: 600 14px Inter, system-ui, sans-serif; cursor: pointer; transition: border-color .25s, transform .2s }
+.home-dogs button:hover { border-color: #4A4337 } .home-dogs button:active { transform: scale(.96) }
+.home-open { align-self: flex-start }

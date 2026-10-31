@@ -13,7 +13,7 @@ export interface Thread {
 export interface Board { artifact: string; goal: string; phases: string[]; now: number; sheet: { name: string; value: string }[]; resources: string[]; done_when: string
   done?: { what: string; met: boolean }[]; done_ideas?: string[]; next?: string; finished?: { at: number; path: string; next?: string }; yours?: string[]; at: number }
 export const isSession = (t: Thread) => t.name.startsWith('Session · ')
-export const sessionTitle = (t: Thread) => t.name.replace(/^Session · /, '')
+export const sessionTitle = (t: Thread) => t.name.replace(/^(Session|Agent slot) · /, '') // a dog's chat opens in the same view, under its own name
 // each session keeps its own mode (Carl, 2026-10-30: "make plan mode its own mode to keep every chat different")
 export type SessionMode = 'plan' | 'talk' | 'do'
 export const MODES: { id: SessionMode; label: string; line: string }[] = [

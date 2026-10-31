@@ -3,7 +3,7 @@
 // the talk is on the left and the board on the right: what was brought, the phases, the sheet filling in from their
 // own words, the skills and files in use, and what done means. On a phone the board folds above the talk.
 import { useEffect, useRef, useState } from 'react'
-import { type Thread, type SavePoint, type SessionMode, MODES, modeLabel, useThread, startSession, setSessionMode, endSession, saveSession, sessionTitle, loadSaves, undoTo } from './door'
+import { type Thread, type SavePoint, type SessionMode, MODES, modeLabel, useThread, startSession, setSessionMode, endSession, saveSession, sessionTitle, isSession, loadSaves, undoTo } from './door'
 import { type Output } from './outputs'
 
 // what a finished session hands the next one: its saved sheet, what comes next, and a name
@@ -180,10 +180,10 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
       <header className="sess-head">
         <button className="calm-quiet" onClick={onBack}>← Goddard</button>
         <h1>{sessionTitle(thread)}</h1>
-        <button className="calm-quiet" onClick={() => confirm(mode === 'plan' ? 'End this session? The sheet is saved as a document in your Library.' : 'End this chat?') && endSession(thread.port).then(r => { if (r.path) onToast('Saved the sheet to your Library'); onBack() }, e => onToast((e as Error).message))}>End</button>
+        {!isSession(thread) ? <span className="sess-head-pad" aria-hidden="true" /> : <button className="calm-quiet" onClick={() => confirm(mode === 'plan' ? 'End this session? The sheet is saved as a document in your Library.' : 'End this chat?') && endSession(thread.port).then(r => { if (r.path) onToast('Saved the sheet to your Library'); onBack() }, e => onToast((e as Error).message))}>End</button>}
       </header>
       <div className="sess-tools">
-        <ModeBar mode={mode} open={switching} onToggle={() => setSwitching(v => !v)} onPick={switchTo} />
+        {isSession(thread) && <ModeBar mode={mode} open={switching} onToggle={() => setSwitching(v => !v)} onPick={switchTo} />}
         <button className={'sess-tool' + (bionic ? ' on' : '')} aria-pressed={bionic} onClick={() => setBionic(!bionic)}>Bionic</button>
         <button className={'sess-tool' + (pace !== 'off' ? ' on' : '')} onClick={() => setPace(NEXT_PACE[pace])} aria-label={`Reading pace: ${pace}. Tap to change.`}>Pace · {pace}</button>
         <button className="sess-tool fo" onClick={() => focusFor(25)}>Focus ◎</button>
