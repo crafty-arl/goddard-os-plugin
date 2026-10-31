@@ -18,6 +18,42 @@ export function useBionic(): boolean {
   useEffect(() => { const f = () => setOn(bionicOn()); window.addEventListener(BIONIC, f); return () => window.removeEventListener(BIONIC, f) }, [])
   return on
 }
+// Pacing (Carl, 2026-10-31: "all responses stream in with Bionic Reading and Pacing"): a new reply appears a few
+// words at a time at a reading pace, so the eye can follow it; its answer buttons come in once it's all there. A tap
+// shows it all at once. Off, or Reduce Motion, shows replies whole. Kept on this device, like Bionic.
+export type Pace = 'off' | 'calm' | 'normal' | 'quick'
+const PACE = 'goddard.pace', WPM: Record<Pace, number> = { off: 0, calm: 170, normal: 250, quick: 380 }
+export const paceNow = (): Pace => { try { const v = localStorage.getItem(PACE) as Pace | null; return v && v in WPM ? v : 'normal' } catch { return 'normal' } }
+export function setPace(p: Pace) { try { localStorage.setItem(PACE, p) } catch { /* this visit only */ } window.dispatchEvent(new Event(PACE)) }
+export function usePace(): Pace {
+  const [p, setP] = useState(paceNow)
+  useEffect(() => { const f = () => setP(paceNow()); window.addEventListener(PACE, f); return () => window.removeEventListener(PACE, f) }, [])
+  return p
+}
+const shownWhole = new Set<string>() // replies already revealed, so a re-render or a return visit never replays them
+const opened = Date.now()
+const wordsIn = (t: string) => (t.match(/\S+/g) ?? []).length
+// how many words of a reply are showing now; every word at once for an old reply, a slow page or Reduce Motion
+export function useReveal(id: string, ts: number, total: number): [number, () => void] {
+  const pace = usePace()
+  const still = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
+  const fresh = !shownWhole.has(id) && ts > opened - 15_000 && pace !== 'off' && !still
+  const [n, setN] = useState(fresh ? 0 : total)
+  useEffect(() => {
+    if (!fresh) { setN(total); return }
+    const per = 60_000 / WPM[pace], step = Math.max(1, Math.round(70 / per)) // a tick every ~70ms, as many words as the pace allows
+    const id2 = setInterval(() => setN(v => { const next = Math.min(total, v + step); if (next >= total) { clearInterval(id2); shownWhole.add(id) } return next }), Math.max(40, per * step))
+    return () => clearInterval(id2)
+  }, [id, total, fresh, pace])
+  return [n, () => { shownWhole.add(id); setN(total) }]
+}
+// the first n words of a text, keeping its line breaks and spacing
+function clip(t: string, n: number): string {
+  if (n <= 0) return ''
+  let seen = 0, out = ''
+  for (const m of t.matchAll(/(\s*)(\S+)/g)) { if (seen >= n) break; out += m[1] + m[2]; seen++ }
+  return out
+}
 function bio(t: string, k: string): ReactNode[] {
   return t.split(/(\s+)/).map((w, i) => {
     const letters = w.replace(/[^\p{L}\p{N}]/gu, '').length
@@ -84,21 +120,42 @@ export function grouped(text: string): { lead: string; ask: string; groups: Grou
   if (!groups.length && !ask) return null
   return { lead, ask, groups, rest }
 }
-function GroupedReply({ g, b, choices, onPick }: { g: NonNullable<ReturnType<typeof grouped>>; b: boolean; choices: string[]; onPick: (c: string) => void }) {
+function GroupedReply({ g, b, choices, onPick, shown, done }: { g: NonNullable<ReturnType<typeof grouped>>; b: boolean; choices: string[]; onPick: (c: string) => void; shown: number; done: boolean }) {
   const [more, setMore] = useState(false)
+  // the reading order is lead, question, then each group's lines; each part shows as many words as the pace has reached
+  let left = shown
+  const take = (t: string) => { const c = clip(t, left); left -= wordsIn(t); return c }
+  const lead = take(g.lead), ask = g.ask ? take(g.ask) : ''
+  const groups = g.groups.map(x => ({ ...x, items: x.items.map(take).filter(Boolean) })).filter(x => x.items.length)
   return (
     <div className="talk-grouped">
-      <p className="talk-lead">{inline(g.lead, 'lead', b)}</p>
-      {g.ask && <section className="talk-ask"><span>Needs you</span><p>{inline(g.ask, 'ask', b)}</p>
-        {choices.length > 0 && <div className="sess-choices">{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} onClick={() => onPick(c)}>{c}</button>)}</div>}</section>}
-      {g.groups.map(x => <section key={x.kind} className={'talk-group ' + x.kind}><span>{x.label}{x.items.length > 1 ? ` · ${x.items.length}` : ''}</span>
+      <p className="talk-lead">{inline(lead, 'lead', b)}{!done && !ask && !groups.length && <i className="talk-caret" aria-hidden="true" />}</p>
+      {ask && <section className="talk-ask"><span>Needs you</span><p>{inline(ask, 'ask', b)}</p>
+        {done && choices.length > 0 && <div className="sess-choices">{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} onClick={() => onPick(c)}>{c}</button>)}</div>}</section>}
+      {groups.map(x => <section key={x.kind} className={'talk-group ' + x.kind}><span>{x.label}{x.items.length > 1 ? ` · ${x.items.length}` : ''}</span>
         {x.items.map((it, i) => <p key={i}>{inline(it, x.kind + i, b)}</p>)}</section>)}
-      {g.rest.length > 0 && <>
+      {done && g.rest.length > 0 && <>
         <button className="talk-more" aria-expanded={more} onClick={() => setMore(m => !m)}>{more ? 'Less' : 'More detail'} <span aria-hidden="true">{more ? '▴' : '▸'}</span></button>
         {more && <div className="talk-body">{rich(g.rest.join('\n'), b)}</div>}
       </>}
-      {!g.ask && choices.length > 0 && <div className="sess-choices">{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} onClick={() => onPick(c)}>{c}</button>)}</div>}
+      {done && !g.ask && choices.length > 0 && <div className="sess-choices">{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} onClick={() => onPick(c)}>{c}</button>)}</div>}
     </div>
+  )
+}
+
+// the newest reply as a card, coming in at the reading pace; a tap on it shows the rest at once
+function Latest({ m, who, b, choices, onPick }: { m: TalkMsg; who: string; b: boolean; choices: string[]; onPick: (c: string) => void }) {
+  const g = grouped(m.text)
+  const total = g ? [g.lead, g.ask, ...g.groups.flatMap(x => x.items)].reduce((n, t) => n + wordsIn(t), 0) : wordsIn(decode(m.text))
+  const [shown, finish] = useReveal(m.id, m.ts, total)
+  const done = shown >= total
+  return (
+    <article className={'talk-latest' + (g ? ' grouped' : '') + (done ? '' : ' pacing')} aria-label={`Latest from ${who}`} aria-busy={!done} onClick={done ? undefined : finish}>
+      <span className="talk-when">{g ? who : 'Latest'} · {hm(m.ts)}{!done && <span className="talk-skip"> · tap to show all</span>}</span>
+      {g ? <GroupedReply g={g} b={b} choices={choices} onPick={onPick} shown={shown} done={done} />
+        : <div className="talk-body">{rich(done ? m.text : clip(decode(m.text), shown), b)}{!done && <i className="talk-caret" aria-hidden="true" />}</div>}
+      {!g && done && choices.length > 0 && <div className="sess-choices">{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} onClick={() => onPick(c)}>{c}</button>)}</div>}
+    </article>
   )
 }
 
@@ -147,22 +204,7 @@ export function Talk({ msgs, who, choices, onPick, busy, note }: {
       {ps.map((p, i) => {
         if (p.kind === 'fold') return <Fold key={'f' + p.ms[0].id} ms={p.ms} who={who} render={plainMsg} />
         const m = p.m
-        if (i === ps.length - 1 && m === last && m.from === 'assistant' && !busy) {
-          const g = grouped(m.text)
-          if (g) return (
-            <article key={m.id} className="talk-latest grouped" aria-label={`Latest from ${who}`}>
-              <span className="talk-when">{who} · {hm(m.ts)}</span>
-              <GroupedReply g={g} b={b} choices={choices} onPick={onPick} />
-            </article>
-          )
-          return (
-            <article key={m.id} className="talk-latest" aria-label={`Latest from ${who}`}>
-              <span className="talk-when">Latest · {hm(m.ts)}</span>
-              <div className="talk-body">{rich(m.text, b)}</div>
-              {choices.length > 0 && <div className="sess-choices">{choices.map((c, n) => <button key={c} className={n === 0 ? 'go' : ''} onClick={() => onPick(c)}>{c}</button>)}</div>}
-            </article>
-          )
-        }
+        if (i === ps.length - 1 && m === last && m.from === 'assistant' && !busy) return <Latest key={m.id} m={m} who={who} b={b} choices={choices} onPick={onPick} />
         return plainMsg(m)
       })}
     </>

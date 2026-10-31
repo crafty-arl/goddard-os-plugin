@@ -12,7 +12,7 @@ const docOf = (path: string): Output => ({ kind: 'file', path, type: 'md', name:
 import { linkify } from './ChatPanel'
 import { Attach, Voice, grow } from './dock'
 import { DogScreen, Keys, usesDogComputer } from './DogScreen'
-import { Talk, rich, grouped, useBionic, setBionic } from './talk'
+import { Talk, rich, grouped, useBionic, setBionic, usePace, setPace, type Pace } from './talk'
 
 const DRAFT = 'goddard.session-draft'
 
@@ -101,7 +101,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
   // only Plan it fills in suggestions of its own; a chat or a job shows the dog's, when it gave some
   const choices = last?.from === 'assistant' ? (last.choices?.length ? last.choices : mode === 'plan' ? FALLBACK : []) : []
   const [switching, setSwitching] = useState(false)
-  const bionic = useBionic()
+  const bionic = useBionic(), pace = usePace()
   // Focus mode: one question on the screen, everything else gone, pings held on the door until it ends
   const [focusUntil, setFocusUntil] = useState(0)
   const focusFor = (minutes: number) => fetch('/door/api/focus', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ minutes }) })
@@ -185,6 +185,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
       <div className="sess-tools">
         <ModeBar mode={mode} open={switching} onToggle={() => setSwitching(v => !v)} onPick={switchTo} />
         <button className={'sess-tool' + (bionic ? ' on' : '')} aria-pressed={bionic} onClick={() => setBionic(!bionic)}>Bionic</button>
+        <button className={'sess-tool' + (pace !== 'off' ? ' on' : '')} onClick={() => setPace(NEXT_PACE[pace])} aria-label={`Reading pace: ${pace}. Tap to change.`}>Pace · {pace}</button>
         <button className="sess-tool fo" onClick={() => focusFor(25)}>Focus ◎</button>
       </div>
       {/* on a phone the board is an off-screen drawer: one slim bar shows where you are, a tap slides the plan in */}
@@ -280,6 +281,7 @@ function BoardView({ b, approved, onOpen, onContinue, onAddDone }: { b: NonNulla
 
 // what the dog is doing right now, as it happens: its own "thinking out loud" lines and each tool it reaches for
 const STEP_PLAIN = (t: string) => t.replace(/^» /, '').replace(/(?:~|\/Users\/[^/\s]+|\/Volumes\/[^/\s]+)\/(?:[^\s/]+\/)*/g, '')
+const NEXT_PACE: Record<Pace, Pace> = { calm: 'normal', normal: 'quick', quick: 'off', off: 'calm' }
 // a tool step in plain words ("Using browser · browser_click" → "Clicking"); the dog's own status lines pass through
 const TOOL_WORDS: Record<string, string> = {
   web_open: 'Opening a page', browser_navigate: 'Opening a page', web_look: 'Looking at the page', browser_snapshot: 'Reading the page',
