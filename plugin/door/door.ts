@@ -343,7 +343,7 @@ async function launch(port: number, { dir, name, env, args, bg }: Launch, resume
   // environment belongs to another dog, so GM_CHAT_PORT can't be trusted there (Home's steps once went to Scribbles)
   const hooks = join(LAUNCH_DIR, `${port}-hooks.json`)
   const hook = { hooks: [{ type: 'command', command: `GM_CHAT_PORT=${port} sh ${sh(join(HERE, 'hook.sh'))}` }] }
-  const guard = { hooks: [{ type: 'command', command: `bun ${sh(join(HERE, 'lacie-guard.ts'))}` }] }
+  const guard = { hooks: [{ type: 'command', command: `GODDARD_LACIE=${sh(LACIE)} bun ${sh(join(HERE, 'lacie-guard.ts'))}` }] } // the owner's own drive, from their profile
   // a background dog has no window for permission prompts: they go to Carl's page as Allow / No instead
   const permit = { hooks: [{ type: 'command', timeout: 1300, command: `GM_CHAT_PORT=${port} GM_CHAT_NAME=${sh(name)} bun ${sh(join(HERE, 'permit.ts'))}` }] }
   // Go-live gate and save points (Carl, 2026-10-29): live actions stop for his card; repos get a save point first

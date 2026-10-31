@@ -173,6 +173,10 @@ describe('saving Setup', () => {
     const script = readdirSync(join(STATE, 'launch')).filter(f => f.endsWith('.command')).map(f => readFileSync(join(STATE, 'launch', f), 'utf8')).join('\n')
     expect(script).toContain(`cd '${NOTES}'`)
   })
+  test("the delete guard watches the owner's own drive", () => {
+    const hooks = readdirSync(join(STATE, 'launch')).filter(f => f.endsWith('-hooks.json')).map(f => readFileSync(join(STATE, 'launch', f), 'utf8')).join('\n')
+    expect(hooks).toContain('GODDARD_LACIE=')
+  })
   test('what the dogs read uses the new owner, not Carl', async () => {
     const launched = readdirSync(join(STATE, 'launch')).map(f => readFileSync(join(STATE, 'launch', f), 'utf8')).join('\n')
     expect(launched).not.toMatch(/\bCarl\b/); expect(launched).not.toContain('gm-mind'); expect(launched).not.toMatch(/192\.168\.\d+\.\d+/)

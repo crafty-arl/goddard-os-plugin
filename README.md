@@ -25,6 +25,9 @@ The first start installs what it needs, signs this Mac's browser in, and opens S
 phone, your dogs, a dog computer, pings, more connections). Every step after the first can be skipped. Nothing starts
 a Claude session until Setup is saved.
 
+**Full walkthrough:** [docs/SETUP.md](docs/SETUP.md) covers every Setup step, getting your phone in, passkeys, pings,
+and what to do when something goes wrong.
+
 ## What Setup looks like
 
 Six steps, one at a time, each with a test button. Only the first one is required.
@@ -54,8 +57,31 @@ demo install with a made-up owner.
 ## For the maintainer
 
 `./bundle.sh` copies the app and the door into `plugin/` from their repos (tracked files only).
-`bun test test/` runs the install tests: a fresh install on spare ports, with a stand-in for Claude so no real
-session starts.
+`bun run test` bundles and runs the install tests: a fresh install on spare ports, with a stand-in for Claude so no
+real session starts.
+
+## How the screenshots are made
+
+The screenshots and the GIF are made by a script, not by hand, so they always show the current app and never anyone's
+real data:
+
+```
+bun install
+bun run screenshots
+```
+
+[`scripts/screenshots.ts`](scripts/screenshots.ts) does this:
+
+1. Starts the bundled app on spare ports with an empty, temporary state folder, so it never touches a real install.
+   Claude is replaced by a stand-in that starts no sessions.
+2. Opens a headless, phone-sized browser (390 × 844, dark mode), signs it in, and walks Setup as a made-up owner
+   ("Dana" at "Lakefront Lab"), taking a screenshot at each step.
+3. Adds two stand-in chats, a plan waiting for Go and a Just talk chat, to show Home and the mode switch.
+4. Saves the PNGs to `docs/screens/`, builds `docs/demo.gif` with ffmpeg, then stops everything and deletes the
+   temporary folder.
+
+It needs Bun, Node, ffmpeg (`brew install ffmpeg`) and a Chromium for Playwright (`bunx playwright install chromium`,
+or point `CHROME_PATH` at a Chrome). Run it again after any change to the screens.
 
 ## License
 

@@ -1,0 +1,12 @@
+{
+  "name": "goddard-os-plugin",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "./bundle.sh && bun test test/",
+    "screenshots": "bun scripts/screenshots.ts"
+  },
+  "devDependencies": {
+    "playwright-core": "1.56.1"
+  }
+}

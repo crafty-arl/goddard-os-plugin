@@ -16,6 +16,6 @@ if (tool === 'Bash') {
   if (cmd.includes(LACIE) && /(^|[;&|\s(])(rm|rmdir|unlink|mv|truncate|shred|dd|rsync\s+[^;]*--delete|find\s+[^;]*-delete|sed\s+-i|perl\s+-pi)\b|>(?!>)\s*\S*LaCie/.test(cmd)) why = `run: ${cmd.slice(0, 200)}`
 }
 if (why) {
-  console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: `This would ${why} on your LaCie drive.` } }))
+  console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: `This would ${why} on your ${/LaCie/.test(LACIE) ? "LaCie" : "big"} drive.` } }))
 }
 process.exit(0)
