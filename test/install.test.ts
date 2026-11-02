@@ -210,6 +210,10 @@ describe('what ships in the plugin', () => {
       .filter(f => mine.some(m => readFileSync(f, 'utf8').includes(m))).map(f => f.slice(ROOT.length + 1))
     expect(hits).toEqual([])
   })
+  test('the paper robot add-on ships, and its rig is off until the owner turns it on', async () => {
+    for (const f of ['skills/paper-robot/SKILL.md', 'skills/paper-robot/robot.py', 'commands/video.md']) expect(existsSync(join(ROOT, f))).toBe(true)
+    expect((await (await app('/door/api/profile')).json()).profile.rig?.on ?? false).toBe(false)
+  })
   test('the plugin passes Claude Code\'s own check', () => {
     const r = Bun.spawnSync(['claude', 'plugin', 'validate', ROOT])
     expect(r.stdout.toString() + r.stderr.toString()).toContain('Validation passed')

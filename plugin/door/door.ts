@@ -12,7 +12,7 @@ import { appendFileSync, chmodSync, mkdtempSync, copyFileSync, existsSync, readF
 import { homedir, tmpdir } from 'os'
 import { basename, dirname, join, resolve } from 'path'
 import { DOOR_PORT, HEAD, HOST, SESSIONS_DIR, STATE_DIR, TOKEN, gate, isToken, lanAddress } from './common'
-import { profile, has, own, ownFile, mindDir, DEFAULT_DIR, saveProfile, PROFILE_FILE, type Profile } from './profile'
+import { profile, has, own, ownFile, mindDir, rigOut, DEFAULT_DIR, saveProfile, PROFILE_FILE, type Profile } from './profile'
 import webpush from 'web-push'
 
 const CONFIG_FILE = join(STATE_DIR, 'door.json')
@@ -932,7 +932,7 @@ const OUTPUT_TYPES: Record<string, string> = {
   webp: 'image/webp', svg: 'image/svg+xml', pdf: 'application/pdf', mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', mp3: 'audio/mpeg', wav: 'audio/wav',
 }
 function outputRoots(): string[] {
-  const roots = [...new Set([mindDir(), '~/goddard-os', '~/Desktop']), LIBRARY_DIR, LOCAL_LIBRARY, ...(existsSync(LACIE) ? [LACIE] : []), ...config().folders]
+  const roots = [...new Set([mindDir(), '~/goddard-os', '~/Desktop']), LIBRARY_DIR, LOCAL_LIBRARY, ...(existsSync(LACIE) ? [LACIE] : []), ...(has('rig') ? [rigOut()] : []), ...config().folders]
   return [...new Set(roots.map(home).filter(existsSync).map(r => realpathSync(r)))]
 }
 function readOutput(raw: string): Response {

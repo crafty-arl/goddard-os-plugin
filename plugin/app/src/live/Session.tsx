@@ -4,7 +4,7 @@
 // own words, the skills and files in use, and what done means. On a phone the board folds above the talk.
 import { useEffect, useRef, useState } from 'react'
 import { type Thread, type SavePoint, type SessionMode, MODES, modeLabel, useThread, startSession, setSessionMode, endSession, saveSession, sessionTitle, isSession, loadSaves, undoTo } from './door'
-import { type Output } from './outputs'
+import { type Output, findOutputs, OutputStrip, PlanCards } from './outputs'
 
 // what a finished session hands the next one: its saved sheet, what comes next, and a name
 export type Carry = { brought: string; want: string; title: string }
@@ -101,6 +101,10 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
   // only Plan it fills in suggestions of its own; a chat or a job shows the dog's, when it gave some
   const choices = last?.from === 'assistant' ? (last.choices?.length ? last.choices : mode === 'plan' ? FALLBACK : []) : []
   const [switching, setSwitching] = useState(false)
+  // a paper robot video session shows what the dog made right in the talk: the spec card (plan.md) and the video, in
+  // the same card and strip Home uses. Other sessions are unchanged.
+  const robot = live.msgs.some(m => m.text.includes('paper-robot'))
+  const outs = robot ? findOutputs(msgs.filter(m => m.from === 'assistant').map(m => m.text)) : []
   const bionic = useBionic(), pace = usePace()
   // Focus mode: one question on the screen, everything else gone, pings held on the door until it ends
   const [focusUntil, setFocusUntil] = useState(0)
@@ -209,6 +213,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
           {onComputer && <DogScreen busy={live.busy.on} onOpen={() => setScreen(true)} slot={thread.slot} />}
           <div className="sess-msgs" role="log">
             <Talk msgs={msgs} who="the dog" choices={perm ? [] : choices} onPick={say} busy={live.busy.on} note={noteOf} />
+            {outs.length > 0 && <div className="sess-outs"><PlanCards outputs={outs} /><OutputStrip outputs={outs} onOpen={onView} /></div>}
             {live.busy.on && <Working steps={live.steps} since={lastMine} doing={live.busy.text ?? thread.doing} />}
             <div ref={end} />
           </div>

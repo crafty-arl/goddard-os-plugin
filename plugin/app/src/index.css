@@ -1176,3 +1176,8 @@ span.scv-p { cursor: default }
 .home-dogs button { min-height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #2A2620; background: #12110D; color: #F1EEE7; font: 600 14px Inter, system-ui, sans-serif; cursor: pointer; transition: border-color .25s, transform .2s }
 .home-dogs button:hover { border-color: #4A4337 } .home-dogs button:active { transform: scale(.96) }
 .home-open { align-self: flex-start }
+
+/* the paper robot video card (add-on): its own teal, so it reads as new next to Start */
+.calm-start.robot { border: 2px solid #4FA3A5; background: #10191A }
+.calm-start.robot b em { font: 700 10px 'Geist Mono', ui-monospace, monospace; font-style: normal; letter-spacing: .08em; color: #070707; background: #4FA3A5; padding: 3px 7px; border-radius: 99px }
+.sess-outs { display: flex; flex-direction: column; gap: 12px; margin-top: 12px }

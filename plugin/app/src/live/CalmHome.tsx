@@ -70,8 +70,9 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
   const [signin, setSignin] = useState(false)
   // a new install (no profile saved yet) opens on Setup; once it's saved, Home opens as usual
   const [call, setCall] = useState('boss') // what the dogs call the owner, from their profile
+  const [rig, setRig] = useState(false) // the paper robot video rig (profile module "rig"): on adds its card under Start
   const [work, setWork] = useState<{ dir: string; trusted: boolean } | null>(null) // the folder the dogs work in, and whether Claude Code may start there
-  const readProfile = (first = false) => fetch('/door/api/profile').then(r => r.json()).then(j => { if (first && j.exists === false) setSetup(true); if (j.profile?.owner?.call) setCall(j.profile.owner.call); if (j.exists) setWork(j.work ?? null) }, () => {})
+  const readProfile = (first = false) => fetch('/door/api/profile').then(r => r.json()).then(j => { if (first && j.exists === false) setSetup(true); if (j.profile?.owner?.call) setCall(j.profile.owner.call); if (j.exists) setWork(j.work ?? null); setRig(!!j.profile?.rig?.on) }, () => {})
   useEffect(() => { readProfile(true) }, [])
   const [chat, setChat] = useState(false)
   // Carl, 2026-10-29: "Start first". The session loop is the main thing; the rest waits behind More
@@ -180,6 +181,8 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
           </>
         })()}
         <button className="calm-start" onClick={() => { setCarry(undefined); setSess('new') }}><b>Start a session <span aria-hidden="true">＋</span></b><span>Bring anything. Plan it, just talk, or just do it.</span></button>
+        {/* the paper robot video add-on: a Plan-it session that brings the paper-robot skill; Carl adds who's in it and the bit */}
+        {rig && <button className="calm-start robot" onClick={() => { setCarry({ brought: 'Make a paper robot video with my Standup rig. Use the goddard-os:paper-robot skill.', want: "Who's in it and what happens: ", title: 'Robot video' }); setSess('new') }}><b>Make a paper robot video <em>NEW</em></b><span>Pick your robots, say the bit. A dog builds the sketch.</span></button>}
       </section>
       <button className="calm-quiet calm-morebtn" aria-expanded={more} onClick={() => setMore(m => !m)}>{more ? 'Less' : 'More'}</button>
       {more && <div className="calm-extra">

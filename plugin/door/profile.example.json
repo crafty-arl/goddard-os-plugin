@@ -34,5 +34,10 @@
  },
  "phone": {
   "reach": "wifi"
+ },
+ "rig": {
+  "on": false,
+  "path": "~/videos/the-standup",
+  "out": "~/Goddard/videos"
  }
 }

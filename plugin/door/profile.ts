@@ -25,6 +25,7 @@ export interface Profile {
   bigDrive?: { on: boolean; path: string }            // a drive for large files; used only while it's plugged in
   pings?: { on: boolean; quiet: [number, number]; perHour: number; digest?: number } // phone notifications: quiet from..to, at most n an hour, and the hour of the evening card (18 by default)
   phone?: { reach: 'wifi' | 'tailscale'; host?: string } // how the phone reaches the app, and its https address (Tailscale)
+  rig?: { on: boolean; path: string; out?: string }   // a Standup-style video rig the dogs may run (read and run only), and where its videos go
 }
 
 export const PROFILE_FILE = join(STATE_DIR, 'profile.json')
@@ -41,12 +42,15 @@ export function profile(): Profile {
   return p
 }
 
-export const has = (m: 'memory' | 'dogComputer' | 'helper' | 'bigDrive' | 'pings') => !!profile()[m]?.on
+export const has = (m: 'memory' | 'dogComputer' | 'helper' | 'bigDrive' | 'pings' | 'rig') => !!profile()[m]?.on
 
 // the folder Home and the quick helpers run in: the notes folder when there is one, else ~/Goddard (Claude Code won't
 // start a background session in the home folder itself)
 export const DEFAULT_DIR = '~/Goddard'
 export const mindDir = () => (has('memory') && profile().memory!.path) || DEFAULT_DIR
+// where paper robot videos land (a folder of their own, so they show in Outputs without living in the notes repo)
+export const RIG_DEFAULT = { path: '~/videos/the-standup', out: '~/Goddard/videos' }
+export const rigOut = () => (has('rig') && profile().rig!.out) || RIG_DEFAULT.out
 
 export function saveProfile(p: Profile) {
   writeFileSync(PROFILE_FILE, JSON.stringify(p, null, 1) + '\n', { mode: 0o600 })
