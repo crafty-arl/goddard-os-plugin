@@ -1031,12 +1031,18 @@ function saveAnim(plan: string, anim: unknown): Response {
   writeFileSync(join(dir, 'anim.json'), body)
   return Response.json({ ok: true, path: join(dir, 'anim.json') })
 }
+// robot.py: beside the door in the plugin, or the owner's own skills when the door runs from its repo
+function robotTool(): string | null {
+  return [join(import.meta.dir, '..', 'skills', 'paper-robot', 'robot.py'), home('~/.claude/skills/paper-robot/robot.py')].find(existsSync) ?? null
+}
 // builds the preview for a spec card's sketch (robot.py preview: scene files and a voice mix, no frames, never voices anything)
 async function robotPreview(plan: string): Promise<Response> {
   if (!has('rig')) return Response.json({ error: 'The video rig is off in Setup.' }, { status: 400 })
   const out = realpathSync(home(rigOut())), dir = resolve(dirname(home(plan)))
   if (!(dir === out || dir.startsWith(out + '/')) || !existsSync(join(dir, 'spec.json'))) return Response.json({ error: 'No sketch spec next to that card.' }, { status: 400 })
-  const p = Bun.spawn(['python3', join(import.meta.dir, '..', 'skills', 'paper-robot', 'robot.py'), 'preview', join(dir, 'spec.json'), '--out', dir, '--rig', home(profile().rig!.path)], { stdout: 'pipe', stderr: 'pipe' })
+  const tool = robotTool()
+  if (!tool) return Response.json({ error: 'The paper-robot skill is not on this Mac.' }, { status: 500 })
+  const p = Bun.spawn(['python3', tool, 'preview', join(dir, 'spec.json'), '--out', dir, '--rig', home(profile().rig!.path)], { stdout: 'pipe', stderr: 'pipe' })
   const [o, e, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited])
   if (code) return Response.json({ error: (e || o).trim().split('\n').slice(-2).join(' ') || 'The preview could not be built.' }, { status: 500 })
   return Response.json(JSON.parse(o))

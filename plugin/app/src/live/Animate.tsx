@@ -130,6 +130,10 @@ export function Animate({ plan, onClose, onExport, onAsk }: { plan: string; onCl
     if (!sc) return
     const iv = window.setInterval(() => {
       const S = stage(); if (!S || !el('sc') || base.current) return
+      // the player reloads itself when its scene file changes (the live stage rebuilds it on every saved key): here it
+      // always sees the file it loaded, and this screen writes the changes in itself
+      const fw = frame.current!.contentWindow as any, orig = fw.fetch.bind(fw), mine = new URLSearchParams(fw.location.search).get('scene'), first = orig(mine).then((r: Response) => r.text())
+      fw.fetch = (u: RequestInfo, o?: RequestInit) => String(u) === mine ? first.then((x: string) => new fw.Response(x)) : orig(u, o)
       const doc = frame.current!.contentDocument!, st = doc.createElement('style')
       st.textContent = '#pp,#sc,#tm{display:none!important} body{background:#0B0A08!important} canvas{height:calc(100vh - 56px)!important} #cap{font-size:12px!important;min-height:0!important}'
       doc.head.appendChild(st)
