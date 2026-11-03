@@ -1181,3 +1181,26 @@ span.scv-p { cursor: default }
 .calm-start.robot { border: 2px solid #4FA3A5; background: #10191A }
 .calm-start.robot b em { font: 700 10px 'Geist Mono', ui-monospace, monospace; font-style: normal; letter-spacing: .08em; color: #070707; background: #4FA3A5; padding: 3px 7px; border-radius: 99px }
 .sess-outs { display: flex; flex-direction: column; gap: 12px; margin-top: 12px }
+
+/* the paper robot preview: the sketch playing live on the owner's own stage, before it renders */
+.vp-open { padding: 14px; border-radius: 99px; border: 0; background: #D79B45; color: #070707; font: 700 16px inherit; font-family: inherit; cursor: pointer }
+.vp-hint { text-align: center; color: #A8A091; font-size: 13px; margin-top: -6px }
+.vp { position: fixed; inset: 0; z-index: 60; background: #0B0A08; color: #F1EEE7; display: flex; flex-direction: column; gap: 10px;
+  padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom)) }
+.vp-top { display: flex; align-items: center; gap: 10px } .vp-top b { flex: 1; text-align: center; font: 700 18px 'Playfair Display', serif }
+.vp-live { font: 700 10px 'Geist Mono', ui-monospace, monospace; letter-spacing: .08em; color: #D79B45; min-width: 64px; text-align: right }
+.vp-stage { position: relative; flex: 1; min-height: 0; border-radius: 14px; overflow: hidden; border: 1px solid #2C2820; background: #0B0A08 }
+.vp-stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none } .vp-stage iframe.on { display: block }
+.vp-wait { position: absolute; inset: 0; display: grid; place-items: center; color: #A8A091 }
+.vp-play { position: absolute; inset: 0; display: grid; place-items: center; font-size: 56px; color: #F1EEE7; text-shadow: 0 2px 12px #000; pointer-events: none }
+.vp-prog { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 14px; background: #15130F; border: 1px solid #2C2820 }
+.vp-prog input { width: 100%; accent-color: #D79B45 }
+.vp-chips { display: flex; gap: 6px; overflow-x: auto } .vp-chips button { flex: none; padding: 4px 8px; border-radius: 99px; border: 1px solid #2C2820; background: none; color: #9C968A; font: 500 10px 'Geist Mono', ui-monospace, monospace; cursor: pointer }
+.vp-chips .done { color: #D79B45; border-color: #4A3A22 } .vp-chips .now { color: #F1EEE7; border-color: #F1EEE7; font-weight: 700 }
+.vp-time { font: 500 10px 'Geist Mono', ui-monospace, monospace; color: #9C968A }
+.vp-note { font-size: 13px; color: #D79B45 } .vp-err { color: #E07A5F; padding: 20px 4px }
+.vp-btns { display: flex; gap: 8px } .vp-btns button { flex: 1; padding: 12px; border-radius: 99px; font: 700 14px inherit; font-family: inherit; cursor: pointer }
+.vp-change { background: #15130F; border: 1px solid #2C2820; color: #F1EEE7 } .vp-go { background: #D79B45; border: 0; color: #070707 } .vp-go:disabled { opacity: .5 }
+.vp-out { display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 14px; background: #15130F; border: 1px solid #2C2820 }
+.vp-out > span { flex: none; width: 48px; height: 32px; border-radius: 6px; background: #F1EEE7; color: #070707; display: grid; place-items: center; font: 700 10px 'Geist Mono', ui-monospace, monospace }
+.vp-out div { min-width: 0; display: flex; flex-direction: column } .vp-out b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap } .vp-out small { color: #9C968A; font-size: 11px }

@@ -12,6 +12,7 @@ const docOf = (path: string): Output => ({ kind: 'file', path, type: 'md', name:
 import { linkify } from './ChatPanel'
 import { Attach, Voice, grow } from './dock'
 import { DogScreen, Keys, usesDogComputer } from './DogScreen'
+import { VideoPreview } from './VideoPreview'
 import { Talk, rich, grouped, useBionic, setBionic, usePace, setPace, type Pace } from './talk'
 
 const DRAFT = 'goddard.session-draft'
@@ -105,6 +106,10 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
   // the same card and strip Home uses. Other sessions are unchanged.
   const robot = live.msgs.some(m => m.text.includes('paper-robot'))
   const outs = robot ? findOutputs(msgs.filter(m => m.from === 'assistant').map(m => m.text)) : []
+  // the spec card's sketch plays live before it renders; export and changes go back through the dog
+  const card = [...outs].reverse().find(o => o.kind === 'file' && /(^|\/)plan\.md$/.test(o.path)) as Extract<Output, { kind: 'file' }> | undefined
+  const [preview, setPreview] = useState<string | null>(null)
+  const sayRef = useRef<HTMLTextAreaElement>(null)
   const bionic = useBionic(), pace = usePace()
   // Focus mode: one question on the screen, everything else gone, pings held on the door until it ends
   const [focusUntil, setFocusUntil] = useState(0)
@@ -213,7 +218,10 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
           {onComputer && <DogScreen busy={live.busy.on} onOpen={() => setScreen(true)} slot={thread.slot} />}
           <div className="sess-msgs" role="log">
             <Talk msgs={msgs} who="the dog" choices={perm ? [] : choices} onPick={say} busy={live.busy.on} note={noteOf} />
-            {outs.length > 0 && <div className="sess-outs"><PlanCards outputs={outs} /><OutputStrip outputs={outs} onOpen={onView} /></div>}
+            {outs.length > 0 && <div className="sess-outs">
+              {card && <><button className="vp-open" onClick={() => setPreview(card.path)}>▶ Preview it live</button><span className="vp-hint">Plays in seconds. Nothing renders yet.</span></>}
+              <PlanCards outputs={outs} />
+              <OutputStrip outputs={outs} onOpen={onView} /></div>}
             {live.busy.on && <Working steps={live.steps} since={lastMine} doing={live.busy.text ?? thread.doing} />}
             <div ref={end} />
           </div>
@@ -228,12 +236,15 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
           <form className="sess-say" onSubmit={e => { e.preventDefault(); say(draft) }}>
             <Attach onAdd={l => setDraft(d => (d ? d + '\n' : '') + l)} onError={onToast} />
             <Voice onAdd={l => setDraft(d => (d ? d + '\n' : '') + l)} onError={onToast} />
-            <textarea value={draft} rows={1} onChange={e => { setDraft(e.target.value); grow(e.target) }} placeholder="Just talk…" aria-label="Talk"
+            <textarea ref={sayRef} value={draft} rows={1} onChange={e => { setDraft(e.target.value); grow(e.target) }} placeholder="Just talk…" aria-label="Talk"
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); say(draft) } }} />
             <button type="submit" disabled={!draft.trim()} aria-label="Send">↑</button>
           </form>
         </div>
       </div>
+      {preview && <VideoPreview plan={preview} onClose={() => setPreview(null)}
+        onExport={() => { setPreview(null); say('Looks right, export') }}
+        onChange={() => { setPreview(null); setDraft('Change a beat: '); setTimeout(() => sayRef.current?.focus(), 50) }} />}
     </section>
   )
 }

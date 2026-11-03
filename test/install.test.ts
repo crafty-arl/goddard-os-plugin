@@ -211,8 +211,11 @@ describe('what ships in the plugin', () => {
     expect(hits).toEqual([])
   })
   test('the paper robot add-on ships, and its rig is off until the owner turns it on', async () => {
-    for (const f of ['skills/paper-robot/SKILL.md', 'skills/paper-robot/robot.py', 'commands/video.md']) expect(existsSync(join(ROOT, f))).toBe(true)
+    for (const f of ['skills/paper-robot/SKILL.md', 'skills/paper-robot/robot.py', 'commands/video.md', 'app/src/live/VideoPreview.tsx']) expect(existsSync(join(ROOT, f))).toBe(true)
     expect((await (await app('/door/api/profile')).json()).profile.rig?.on ?? false).toBe(false)
+    // with the rig off, the door serves none of it and builds no preview
+    expect((await app('/door/rig/rig/tablestage.html')).status).toBe(404)
+    expect((await post('/door/api/robot/preview', { plan: '/tmp/x/plan.md' })).status).toBe(400)
   })
   test('the plugin passes Claude Code\'s own check', () => {
     const r = Bun.spawnSync(['claude', 'plugin', 'validate', ROOT])

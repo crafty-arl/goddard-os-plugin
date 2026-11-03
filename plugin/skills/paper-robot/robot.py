@@ -8,6 +8,9 @@ sketch.py always writes to.
   robot.py lists                                   what the rig has: sets, rooms, cast, actions, lights, shots, voices
   robot.py check  <spec.json>                      errors, plus how many lines are voiced, cached (free) and new (paid)
   robot.py card   <spec.json> --out DIR            DIR/plan.md, the spec as a short card for the owner's Go
+  robot.py preview <spec.json> --out DIR          DIR/preview.json: each scene built for the rig's live player (no frames,
+                                                   about a second), with its cached voices mixed by their cue times. Never
+                                                   voices anything: a line with no cached take plays silent, with its caption
   robot.py render <spec.json> --out DIR [--fmt short|wide] [--allow-new-voices]
                                                    DIR/<id>_<fmt>.mp4 (refuses to voice new lines without the flag)
 
@@ -79,7 +82,7 @@ def check(spec):
 def card(spec, report):
     """the plan card: the spec in short lines that wrap on a phone, in the order it plays"""
     fmt = "9:16 Short" if os.environ.get("FORMAT", "short") == "short" else "16:9 wide"
-    out = [f"# Sketch spec · {spec.get('title') or spec['id']}", "", f"{fmt}. Waiting on your Go: nothing renders until you say \"Looks right, go\"."]
+    out = [f"# Sketch spec · {spec.get('title') or spec['id']}", "", f"{fmt}. Tap Preview it live to watch it first. Nothing renders until you say \"Looks right, export\"."]
     many = len(scenes(spec)) > 1
     for i, sc in enumerate(scenes(spec)):
         h = sc["host"]; props = sc.get("props") or {}
@@ -97,18 +100,75 @@ def card(spec, report):
             + (f" ({report['new_chars']} characters on Workers AI, a few cents)" if report["new"] else " (no spend)")]
     return "\n".join(out) + "\n"
 
-def render(spec, out_dir, fmt, allow_new):
-    rep = check(spec)
-    if not rep["ok"]: sys.exit("Spec has errors:\n- " + "\n- ".join(rep["errors"]))
-    if rep["new"] and not allow_new:
-        sys.exit(f"{rep['new']} line(s) need new voices ({rep['new_chars']} characters, paid). Ask first, then pass --allow-new-voices.")
-    # cached takes are copied into this sketch's own work folder, so sketch.py finds them and nothing is voiced again
+def stage_voices(rep):
+    """cached takes are copied into this sketch's own work folder, so sketch.py finds them and nothing is voiced again"""
     for l in rep["_lines"]:
         dest = os.path.join(PIPE, "work", l["scene"])
         if l["cached"] and os.path.realpath(l["cached"]) != os.path.realpath(dest):
             os.makedirs(dest, exist_ok=True)
             for f in glob.glob(os.path.join(l["cached"], f"vo-{l['hash']}.*")):
                 if not os.path.exists(os.path.join(dest, os.path.basename(f))): shutil.copy2(f, dest)
+
+def preview(spec, out_dir):
+    """Builds every scene for the rig's live player (tablestage.html?play=1) without rendering a frame. Each scene gets
+    preview.json (as the render films it), preview.phone.json (1x pixels, no depth of field, for phones) and
+    preview.wav (its voices at their cue times; the render's room tone and sound effects are left out)."""
+    rep = check(spec)
+    if not rep["ok"]: sys.exit("Spec has errors:\n- " + "\n- ".join(rep["errors"]))
+    stage_voices(rep)
+    real_tts, silent = SK.tts, []
+    def no_spend_tts(text, voice, phone, od):
+        # a cached take is used as is; anything else gets a silent stand-in of about its spoken length, never the API.
+        # It is named so neither this script nor sketch.py ever mistakes it for a real take (vo-<hash>.wav).
+        h = hashlib.sha1(f"{voice}|{phone}|{text}".encode()).hexdigest()[:12]
+        if os.path.exists(os.path.join(od, f"vo-{h}.wav")): return real_tts(text, voice, phone, od)
+        words = text.split(); per = 1 / 2.6; dur = max(0.8, len(words) * per)
+        wav = os.path.join(od, f"preview-silent-{h}.wav")
+        if not os.path.exists(wav): run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono", "-t", f"{dur:.2f}", wav])
+        silent.append(text)
+        return wav, [[w, i * per, (i + 1) * per] for i, w in enumerate(words)]
+    SK.tts = no_spend_tts
+    many, out = bool(spec.get("scenes")), []
+    try:
+        for i, sc in enumerate(scenes(spec)):
+            sub = dict(sc)
+            # the same seams standup.py puts between scenes: middle scenes have no end card and a short tail, later ones a short lead
+            if many and i < len(spec["scenes"]) - 1: sub.pop("ending", None); sub.update({"tail": 0.2, "tail_black": 0.0})
+            if many and i: sub["lead"] = 0.1
+            n0 = len(silent); scene_path, dur = SK.compile_spec(sub)
+            work = os.path.dirname(scene_path); scene = json.load(open(scene_path))
+            json.dump(scene, open(os.path.join(work, "preview.json"), "w"))
+            json.dump({**scene, "ssaa": 1, "dof": False}, open(os.path.join(work, "preview.phone.json"), "w"))
+            wav = os.path.join(work, "preview.wav"); cues = scene.get("audio") or []
+            ins = sum((["-i", os.path.join(RIG, c["file"])] for c in cues), [])
+            run(["ffmpeg", "-v", "error", "-y", *ins, "-f", "lavfi", "-t", f"{dur:.3f}", "-i", "anullsrc=r=48000:cl=stereo",
+                 "-filter_complex", "".join(f"[{k}:a]aresample=48000,aformat=channel_layouts=stereo,adelay={int(c['at'] * 1000)}:all=1,volume={c.get('gain', 0)}dB[a{k}];" for k, c in enumerate(cues))
+                 + f"[{len(cues)}:a]" + "".join(f"[a{k}]" for k in range(len(cues))) + f"amix=inputs={len(cues) + 1}:normalize=0:duration=first[m]",
+                 "-map", "[m]", "-c:a", "pcm_s16le", wav])
+            rel = lambda p: os.path.relpath(p, RIG)
+            out.append({"n": i + 1, "host": sc["host"]["robot"], "dur": round(dur, 3), "scene": rel(os.path.join(work, "preview.json")),
+                        "phone": rel(os.path.join(work, "preview.phone.json")), "audio": rel(wav), "silent": silent[n0:]})
+    finally: SK.tts = real_tts
+    # the whole sketch's voices in one file: the preview's clock (one sound the browser lets play from a single tap)
+    os.makedirs(out_dir, exist_ok=True); mix = os.path.join(out_dir, "preview.wav")
+    run(["ffmpeg", "-v", "error", "-y", *sum((["-i", os.path.join(RIG, x["audio"])] for x in out), []),
+         "-filter_complex", "".join(f"[{k}:a]" for k in range(len(out))) + f"concat=n={len(out)}:v=0:a=1[m]", "-map", "[m]", "-c:a", "pcm_s16le", mix])
+    man = {"id": spec["id"], "title": spec.get("title") or spec["id"], "total": round(sum(s["dur"] for s in out), 3), "scenes": out, "audio": mix,
+           "new_voices": rep["new"], "note": "voices only: the render adds room tone and sound effects"}
+    os.makedirs(out_dir, exist_ok=True); json.dump(spec, open(os.path.join(out_dir, "spec.json"), "w"), indent=1)
+    p = os.path.join(out_dir, "preview.json"); json.dump(man, open(p, "w"), indent=1)
+    return man
+
+def run(cmd):
+    import subprocess; r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode: sys.exit(f"{cmd[0]} failed: {r.stderr.strip()[-400:]}")
+
+def render(spec, out_dir, fmt, allow_new):
+    rep = check(spec)
+    if not rep["ok"]: sys.exit("Spec has errors:\n- " + "\n- ".join(rep["errors"]))
+    if rep["new"] and not allow_new:
+        sys.exit(f"{rep['new']} line(s) need new voices ({rep['new_chars']} characters, paid). Ask first, then pass --allow-new-voices.")
+    stage_voices(rep)
     os.makedirs(out_dir, exist_ok=True)
     spec_path = os.path.join(out_dir, "spec.json"); json.dump(spec, open(spec_path, "w"), indent=1)
     os.environ.update({"STANDUP_MASTERS": out_dir, "FORMAT": fmt})
@@ -134,7 +194,7 @@ if __name__ == "__main__":
         print(json.dumps({"rig": RIG, "sets": SETS, "rooms": ROOMS, "cast": CAST, "dog": "Biscuit (props.dog: true, sits on the desk)",
                           "actions": SK.ACTIONS, "lights": SK.LIGHTS, "shots": SK.SHOTS, "host_voices": SK.HOST_VOICE,
                           "strip_modes": ["live", "video", "vlog", "plain"]}, indent=1)); sys.exit()
-    if cmd not in ("check", "card", "render") or len(sys.argv) < 3: sys.exit(__doc__)
+    if cmd not in ("check", "card", "preview", "render") or len(sys.argv) < 3: sys.exit(__doc__)
     spec = json.load(open(os.path.expanduser(sys.argv[2])))
     out = os.path.expanduser(arg("--out", "") or "")
     if cmd == "check":
@@ -144,4 +204,5 @@ if __name__ == "__main__":
         r = check(spec)
         if not r["ok"]: sys.exit("Spec has errors:\n- " + "\n- ".join(r["errors"]))
         os.makedirs(out, exist_ok=True); p = os.path.join(out, "plan.md"); open(p, "w").write(card(spec, r)); print(p); sys.exit()
+    if cmd == "preview": print(json.dumps(preview(spec, out), indent=1)); sys.exit()
     print(render(spec, out, arg("--fmt", "short"), "--allow-new-voices" in sys.argv))

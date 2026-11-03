@@ -955,6 +955,39 @@ function readOutput(raw: string): Response {
 }
 
 
+// --- the paper robot preview: the owner's rig, served read-only so its live player runs inside Goddard OS -------
+// Only the folders the stage itself loads from, only the file types it needs, and only its one page. Same origin as
+// the app on purpose: the preview page drives the player (time, seek, pause) from outside, so the rig stays unedited.
+const RIG_DIRS = ['rig/', 'puppet/node_modules/three/', 'sets3d/', 'props/', 'pipeline/work/']
+const RIG_TYPES: Record<string, string> = { js: 'text/javascript', mjs: 'text/javascript', json: 'application/json', bin: 'application/octet-stream',
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', wav: 'audio/wav', mp3: 'audio/mpeg' }
+const rigRoot = () => realpathSync(home(profile().rig!.path))
+function readRig(rel: string): Response {
+  if (!has('rig')) return new Response('no rig', { status: 404 })
+  const root = rigRoot(), want = resolve(root, decodeURIComponent(rel))
+  const sub = want.startsWith(root + '/') ? want.slice(root.length + 1) : ''
+  const page = sub === 'rig/tablestage.html'
+  if (!page && !RIG_DIRS.some(d => sub.startsWith(d))) return new Response('not part of the stage', { status: 403 })
+  if (!existsSync(want)) return new Response('not found', { status: 404 })
+  const real = realpathSync(want)
+  if (!real.startsWith(root + '/') || !statSync(real).isFile()) return new Response('not part of the stage', { status: 403 })
+  const type = page ? 'text/html; charset=utf-8' : RIG_TYPES[real.split('.').pop()!.toLowerCase()]
+  if (!type) return new Response('not a stage file', { status: 415 })
+  // three.js and the painted sets don't change between previews; the scene and its voices do
+  const fresh = sub.startsWith('pipeline/work/') || page
+  return new Response(Bun.file(real), { headers: { 'content-type': type, 'x-content-type-options': 'nosniff', 'cache-control': fresh ? 'no-store' : 'max-age=3600' } })
+}
+// builds the preview for a spec card's sketch (robot.py preview: scene files and a voice mix, no frames, never voices anything)
+async function robotPreview(plan: string): Promise<Response> {
+  if (!has('rig')) return Response.json({ error: 'The video rig is off in Setup.' }, { status: 400 })
+  const out = realpathSync(home(rigOut())), dir = resolve(dirname(home(plan)))
+  if (!(dir === out || dir.startsWith(out + '/')) || !existsSync(join(dir, 'spec.json'))) return Response.json({ error: 'No sketch spec next to that card.' }, { status: 400 })
+  const p = Bun.spawn(['python3', join(import.meta.dir, '..', 'skills', 'paper-robot', 'robot.py'), 'preview', join(dir, 'spec.json'), '--out', dir, '--rig', home(profile().rig!.path)], { stdout: 'pipe', stderr: 'pipe' })
+  const [o, e, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited])
+  if (code) return Response.json({ error: (e || o).trim().split('\n').slice(-2).join(' ') || 'The preview could not be built.' }, { status: 500 })
+  return Response.json(JSON.parse(o))
+}
+
 // --- the Library: every output an agent makes, kept ---------------------------
 // Files are COPIED into ~/GoddardLibrary/<date>-<task>/ so later edits don't change them (over 200 MB: indexed by path
 // only). Links are kept as entries. index.json lists everything, newest last. Not in any git repo.
@@ -1264,6 +1297,8 @@ Bun.serve({
     }
     if (url.pathname === '/api/slots' && req.method === 'GET') return Response.json({ slots: slotsOf(await threads(), loadTasks()) })
     if (url.pathname === '/api/file' && req.method === 'GET') return readOutput(url.searchParams.get('path') ?? '')
+    if (url.pathname.startsWith('/rig/') && req.method === 'GET') return readRig(url.pathname.slice(5))
+    if (url.pathname === '/api/robot/preview' && req.method === 'POST') { try { return await robotPreview(String((await req.json()).plan ?? '')) } catch (e) { return Response.json({ error: (e as Error).message }, { status: 400 }) } }
     if (url.pathname === '/api/sessions' && req.method === 'GET') return Response.json({ sessions: await otherSessions() })
     if (url.pathname === '/api/track' && req.method === 'POST') { try { track(await req.json()) } catch {} return Response.json({ ok: true }) }
     if (url.pathname === '/api/library' && req.method === 'GET') { refreshLibraryDir(); return Response.json({ dir: LIBRARY_DIR, lacie: lacieUp() || !!process.env.GODDARD_LIBRARY, entries: loadLibrary().slice().reverse() }) }
