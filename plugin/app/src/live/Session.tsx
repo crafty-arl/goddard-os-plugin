@@ -12,7 +12,7 @@ const docOf = (path: string): Output => ({ kind: 'file', path, type: 'md', name:
 import { linkify } from './ChatPanel'
 import { Attach, Voice, grow } from './dock'
 import { DogScreen, Keys, usesDogComputer } from './DogScreen'
-import { VideoPreview } from './VideoPreview'
+import { VideoPreview, ExportCard } from './VideoPreview'
 import { Talk, rich, grouped, useBionic, setBionic, usePace, setPace, type Pace } from './talk'
 
 const DRAFT = 'goddard.session-draft'
@@ -104,7 +104,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
   const [switching, setSwitching] = useState(false)
   // a paper robot video session shows what the dog made right in the talk: the spec card (plan.md) and the video, in
   // the same card and strip Home uses. Other sessions are unchanged.
-  const robot = live.msgs.some(m => m.text.includes('paper-robot'))
+  const robot = live.msgs.some(m => m.text.includes('paper-robot') || (m.from === 'assistant' && m.text.includes('Preview it live')))
   const outs = robot ? findOutputs(msgs.filter(m => m.from === 'assistant').map(m => m.text)) : []
   // the spec card's sketch plays live before it renders; export and changes go back through the dog
   const card = [...outs].reverse().find(o => o.kind === 'file' && /(^|\/)plan\.md$/.test(o.path)) as Extract<Output, { kind: 'file' }> | undefined
@@ -220,6 +220,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
             <Talk msgs={msgs} who="the dog" choices={perm ? [] : choices} onPick={say} busy={live.busy.on} note={noteOf} />
             {outs.length > 0 && <div className="sess-outs">
               {card && <><button className="vp-open" onClick={() => setPreview(card.path)}>▶ Preview it live</button><span className="vp-hint">Plays in seconds. Nothing renders yet.</span></>}
+              {card && <ExportCard plan={card.path} onOpen={path => onView({ kind: 'file', path, type: 'video', name: path.split('/').pop()! })} />}
               <PlanCards outputs={outs} />
               <OutputStrip outputs={outs} onOpen={onView} /></div>}
             {live.busy.on && <Working steps={live.steps} since={lastMine} doing={live.busy.text ?? thread.doing} />}

@@ -182,7 +182,7 @@ export function CalmHome({ threads, tasks, home, onPack, onHistory, onToast, ref
         })()}
         <button className="calm-start" onClick={() => { setCarry(undefined); setSess('new') }}><b>Start a session <span aria-hidden="true">＋</span></b><span>Bring anything. Plan it, just talk, or just do it.</span></button>
         {/* the paper robot video add-on: a Plan-it session that brings the paper-robot skill; Carl adds who's in it and the bit */}
-        {rig && <button className="calm-start robot" onClick={() => { setCarry({ brought: 'Make a paper robot video with my Standup rig. Use the goddard-os:paper-robot skill.', want: "Who's in it and what happens: ", title: 'Robot video' }); setSess('new') }}><b>Make a paper robot video <em>NEW</em></b><span>Pick your robots, say the bit. A dog builds the sketch.</span></button>}
+        {rig && <button className="calm-start robot" onClick={() => { setCarry({ brought: 'Make a paper robot video with my Standup rig. Use the paper-robot skill (goddard-os:paper-robot in the plugin): spec card, live preview, export on my OK.', want: "Who's in it and what happens: ", title: 'Robot video' }); setSess('new') }}><b>Make a paper robot video <em>NEW</em></b><span>Pick your robots, say the bit. A dog builds the sketch.</span></button>}
       </section>
       <button className="calm-quiet calm-morebtn" aria-expanded={more} onClick={() => setMore(m => !m)}>{more ? 'Less' : 'More'}</button>
       {more && <div className="calm-extra">

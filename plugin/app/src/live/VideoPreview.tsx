@@ -163,3 +163,42 @@ export function VideoPreview({ plan, onClose, onExport, onChange }: { plan: stri
     </section>
   )
 }
+
+// The export, once the owner says go: robot.py render writes progress.json next to the spec as each scene is filmed,
+// and this card shows it moving (one bar per scene), then the finished MP4. It reads the file, so it keeps up even
+// while the dog is quiet waiting on the render.
+type Progress = { id: string; fmt: string; scenes: number; started: number; now: number; phase: 'frames' | 'stitch' | 'done' | 'failed'; done: number; on: number; mp4?: string; error?: string }
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+
+export function ExportCard({ plan, onOpen }: { plan: string; onOpen: (path: string) => void }) {
+  const [p, setP] = useState<Progress | null>(null)
+  const [, tick] = useState(0)
+  const file = plan.replace(/plan\.md$/, 'progress.json')
+  useEffect(() => {
+    let stop = false, timer = 0
+    const read = () => fetch(fileUrl(file, Date.now())).then(r => r.ok ? r.json() : null, () => null).then((j: Progress | null) => {
+      if (stop) return
+      setP(j)
+      // quick while it films, slow while nothing has started, and done when it's done
+      if (!j || (j.phase !== 'done' && j.phase !== 'failed')) timer = window.setTimeout(read, j ? 2000 : 5000)
+    }, () => { if (!stop) timer = window.setTimeout(read, 5000) })
+    read()
+    const clock = window.setInterval(() => tick(t => t + 1), 1000)
+    return () => { stop = true; clearTimeout(timer); clearInterval(clock) }
+  }, [file])
+  if (!p) return null
+  const live = p.phase === 'frames' || p.phase === 'stitch'
+  const secs = (live ? Date.now() / 1000 : p.now) - p.started
+  const head = p.phase === 'done' ? `✓ Exported in ${mmss(secs)}` : p.phase === 'failed' ? 'The export stopped' : p.phase === 'stitch' ? `Putting the scenes together · ${mmss(secs)}` : `Exporting on your Mac · scene ${p.on} of ${p.scenes} · ${mmss(secs)}`
+  return (
+    <section className={'vx' + (p.phase === 'done' ? ' done' : p.phase === 'failed' ? ' failed' : '')} aria-live="polite">
+      <span className="eyebrow">Export · {p.fmt === 'wide' ? '16:9' : '9:16'}</span>
+      <b>{head}</b>
+      <div className="vx-bars">{Array.from({ length: p.scenes }, (_, k) => <span key={k} className={k < p.done ? 'done' : k === p.on - 1 && live ? 'now' : ''} />)}</div>
+      <div className="vx-names">{Array.from({ length: p.scenes }, (_, k) => <span key={k} className={k < p.done ? 'done' : k === p.on - 1 && live ? 'now' : ''}>S{k + 1}</span>)}</div>
+      {p.phase === 'done' && p.mp4 && <button className="vp-go" onClick={() => onOpen(p.mp4!)}>▶ Watch the MP4</button>}
+      {p.phase === 'failed' && <small>{p.error}</small>}
+      {live && <small>About 45 seconds a scene. The dog messages you when it's done.</small>}
+    </section>
+  )
+}

@@ -16,7 +16,7 @@ sketch.py always writes to.
 
 The rig folder comes from --rig, else $GM_RIG, else ~/videos/the-standup.
 """
-import glob, hashlib, json, os, shutil, sys, tempfile
+import glob, hashlib, json, os, shutil, sys, tempfile, time
 
 try: import numpy, PIL  # the rig's code runs in the ComfyUI venv; hop into it when started with a bare python
 except ImportError:
@@ -156,6 +156,8 @@ def preview(spec, out_dir):
     man = {"id": spec["id"], "title": spec.get("title") or spec["id"], "total": round(sum(s["dur"] for s in out), 3), "scenes": out, "audio": mix,
            "new_voices": rep["new"], "note": "voices only: the render adds room tone and sound effects"}
     os.makedirs(out_dir, exist_ok=True); json.dump(spec, open(os.path.join(out_dir, "spec.json"), "w"), indent=1)
+    # a new preview means the spec may have changed: an older export's progress no longer describes it
+    if os.path.exists(os.path.join(out_dir, "progress.json")): os.remove(os.path.join(out_dir, "progress.json"))
     p = os.path.join(out_dir, "preview.json"); json.dump(man, open(p, "w"), indent=1)
     return man
 
@@ -179,14 +181,26 @@ def render(spec, out_dir, fmt, allow_new):
     if tmp: ST.FRAMES = tmp
     else:  # the headless Chrome profile and other scratch go to the big drive too
         scratch = os.path.join(os.path.dirname(ST.FRAMES.rstrip("/")), "robot-tmp"); os.makedirs(scratch, exist_ok=True); os.environ["TMPDIR"] = scratch
+    # progress.json next to the spec: which scene is filming, so Goddard OS can show the export moving (the rig's own
+    # per-scene step is wrapped from out here, never edited)
+    n, started, prog = len(scenes(spec)), time.time(), os.path.join(out_dir, "progress.json")
+    def note(**k): json.dump({"id": spec["id"], "fmt": fmt, "scenes": n, "started": started, "now": time.time(), **k}, open(prog, "w"))
+    one, done = ST.render_single, [0]
+    def counted(*a, **k):
+        note(phase="frames", done=done[0], on=done[0] + 1); r = one(*a, **k); done[0] += 1; note(phase="frames" if done[0] < n else "stitch", done=done[0], on=min(done[0] + 1, n)); return r
+    ST.render_single = counted
+    note(phase="frames", done=0, on=1)
     try: mp4 = ST.render_one(spec_path, fmt)
+    except BaseException as e: note(phase="failed", done=done[0], on=done[0] + 1, error=str(e)[-300:]); raise
     finally:
         if tmp: shutil.rmtree(tmp, ignore_errors=True)
         else:
             for d in glob.glob(os.path.join(ST.FRAMES, f"{spec['id']}*_{fmt}")): shutil.rmtree(d, ignore_errors=True)
         # only the finished video stays: the per-scene parts and the audio mixes go
         for f in glob.glob(os.path.join(out_dir, f"{spec['id']}_s*_{fmt}.mp4")) + glob.glob(os.path.join(out_dir, "*.mix.wav")): os.remove(f)
-    return os.path.join(RIG, mp4) if not os.path.isabs(mp4) else mp4
+    mp4 = os.path.join(RIG, mp4) if not os.path.isabs(mp4) else mp4
+    note(phase="done", done=n, on=n, mp4=mp4)
+    return mp4
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
