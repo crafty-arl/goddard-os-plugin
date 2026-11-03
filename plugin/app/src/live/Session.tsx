@@ -14,6 +14,7 @@ import { Attach, Voice, grow } from './dock'
 import { DogScreen, Keys, usesDogComputer } from './DogScreen'
 import { VideoPreview, ExportCard, StagingCard, RigRenderCard, LinesCard } from './VideoPreview'
 import { Animate } from './Animate'
+import { LiveStage } from './LiveStage'
 import { Talk, rich, grouped, useBionic, setBionic, usePace, setPace, type Pace } from './talk'
 
 const DRAFT = 'goddard.session-draft'
@@ -222,6 +223,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
         </aside>
         <div className="sess-talk">
           {onComputer && <DogScreen busy={live.busy.on} onOpen={() => setScreen(true)} slot={thread.slot} />}
+          {card && <LiveStage key={card.path} plan={card.path} />}
           <div className="sess-msgs" role="log">
             <Talk msgs={msgs} who="the dog" choices={perm ? [] : choices} onPick={say} busy={live.busy.on} note={noteOf} />
             {robot && !card && <RigRenderCard />}

@@ -392,7 +392,9 @@ def preview(spec, out_dir):
          "-filter_complex", "".join(f"[{k}:a]" for k in range(len(out))) + f"concat=n={len(out)}:v=0:a=1[m]", "-map", "[m]", "-c:a", "pcm_s16le", mix])
     man = {"id": spec["id"], "title": spec.get("title") or spec["id"], "total": round(sum(s["dur"] for s in out), 3), "scenes": out, "audio": mix,
            "new_voices": rep["new"], "note": "voices only: the render adds room tone and sound effects"}
-    os.makedirs(out_dir, exist_ok=True); json.dump(spec, open(os.path.join(out_dir, "spec.json"), "w"), indent=1)
+    os.makedirs(out_dir, exist_ok=True); sp = os.path.join(out_dir, "spec.json"), ""
+    # only when it changed: the live stage watches this file, and an untouched spec must not look like an edit
+    if not os.path.exists(sp[0]) or json.load(open(sp[0])) != spec: json.dump(spec, open(sp[0], "w"), indent=1)
     # a new preview means the spec may have changed: an older export's progress no longer describes it
     if os.path.exists(os.path.join(out_dir, "progress.json")): os.remove(os.path.join(out_dir, "progress.json"))
     p = os.path.join(out_dir, "preview.json"); json.dump(man, open(p, "w"), indent=1)

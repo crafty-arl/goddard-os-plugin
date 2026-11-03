@@ -998,6 +998,14 @@ async function rigRenders(): Promise<object[]> {
   }
   return Object.values(out)
 }
+// what changed in a sketch's folder (the live stage asks every second): when its spec, keys and lines were last written
+function watchSketch(plan: string): Response {
+  if (!has('rig')) return Response.json({ error: 'The video rig is off in Setup.' }, { status: 400 })
+  const out = realpathSync(home(rigOut())), dir = resolve(dirname(home(plan)))
+  if (!(dir === out || dir.startsWith(out + '/'))) return Response.json({ error: 'Not a sketch folder.' }, { status: 400 })
+  const at = (f: string) => { try { return statSync(join(dir, f)).mtimeMs } catch { return 0 } }
+  return Response.json({ spec: at('spec.json'), anim: at('anim.json'), lines: at('lines.json') })
+}
 // saves the owner's picks on a Grok draft (the lines card): which option each beat uses, or the line as he edited it
 function saveLines(path: string, picks: unknown): Response {
   if (!has('rig')) return Response.json({ error: 'The video rig is off in Setup.' }, { status: 400 })
@@ -1344,6 +1352,7 @@ Bun.serve({
     if (url.pathname === '/api/slots' && req.method === 'GET') return Response.json({ slots: slotsOf(await threads(), loadTasks()) })
     if (url.pathname === '/api/file' && req.method === 'GET') return readOutput(url.searchParams.get('path') ?? '')
     if (url.pathname.startsWith('/rig/') && req.method === 'GET') return readRig(url.pathname.slice(5))
+    if (url.pathname === '/api/robot/watch' && req.method === 'GET') return watchSketch(url.searchParams.get('plan') ?? '')
     if (url.pathname === '/api/robot/lines' && req.method === 'POST') { try { const j = await req.json(); return saveLines(String(j.path ?? ''), j.picks) } catch (e) { return Response.json({ error: (e as Error).message }, { status: 400 }) } }
     if (url.pathname === '/api/robot/anim' && req.method === 'POST') { try { const j = await req.json(); return saveAnim(String(j.plan ?? ''), j.anim) } catch (e) { return Response.json({ error: (e as Error).message }, { status: 400 }) } }
     if (url.pathname === '/api/robot/renders' && req.method === 'GET') return Response.json({ renders: await rigRenders() })
