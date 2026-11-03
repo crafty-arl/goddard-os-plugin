@@ -1294,3 +1294,12 @@ span.scv-p { cursor: default }
 .ls-play { width: 36px; height: 36px; border-radius: 50%; background: #D79B45; color: #070707; border: 0; font-size: 14px; cursor: pointer; flex: none }
 .ls-time { font: 500 11px 'Geist Mono', ui-monospace, monospace; color: #9C968A; min-width: 38px }
 .ls-hide, .ls-show { background: none; border: 1px solid #3A342A; color: #CFC9BC; border-radius: 99px; padding: 4px 10px; cursor: pointer; font: inherit }
+
+/* the robot Watch: the dog computer's Watch view, with the live stage where the dog's screen goes */
+.scv-frame.stage { width: min(100cqw, (100cqh - 46px) * 0.7013 + 0px); aspect-ratio: auto; height: min(100cqh, 100cqw / 0.7013 + 46px) }
+.ls.fill { position: absolute; inset: 0; border: 0; padding: 0; gap: 4px; background: #000 }
+.ls.fill .ls-stage { flex: 1; height: auto; border-radius: 6px; border: 0 }
+.ls.fill .ls-bar { padding: 0 4px 2px }
+.scv-robot { display: flex; flex-direction: column; gap: 6px } .scv-robot .vx { padding: 10px; background: rgba(21,19,15,.92) }
+.scv-mp4 { align-self: flex-start; color: #D79B45 !important; font-weight: 600 }
+.scv-two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px }

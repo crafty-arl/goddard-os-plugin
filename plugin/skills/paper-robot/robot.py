@@ -395,8 +395,7 @@ def preview(spec, out_dir):
     os.makedirs(out_dir, exist_ok=True); sp = os.path.join(out_dir, "spec.json"), ""
     # only when it changed: the live stage watches this file, and an untouched spec must not look like an edit
     if not os.path.exists(sp[0]) or json.load(open(sp[0])) != spec: json.dump(spec, open(sp[0], "w"), indent=1)
-    # a new preview means the spec may have changed: an older export's progress no longer describes it
-    if os.path.exists(os.path.join(out_dir, "progress.json")): os.remove(os.path.join(out_dir, "progress.json"))
+    # an earlier export's progress stays: the export card says when the spec or keys changed after it
     p = os.path.join(out_dir, "preview.json"); json.dump(man, open(p, "w"), indent=1)
     return man
 

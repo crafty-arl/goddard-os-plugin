@@ -45,7 +45,7 @@ function hotApply(win: any, next: any): boolean {
   return true
 }
 
-export function LiveStage({ plan }: { plan: string }) {
+export function LiveStage({ plan, fill }: { plan: string; fill?: boolean }) {
   const [m, setM] = useState<Manifest | null>(null)
   const [k, setK] = useState(0)
   const [t, setT] = useState(0)                    // seconds into the scene on screen
@@ -117,10 +117,10 @@ export function LiveStage({ plan }: { plan: string }) {
     return () => { stop = true; clearInterval(iv) }
   }, [m, k, playing]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!open) return <button className="ls-show" onClick={() => setOpen(true)}>▶ Show the live stage</button>
+  if (!open && !fill) return <button className="ls-show" onClick={() => setOpen(true)}>▶ Show the live stage</button>
   const start = m ? m.scenes.slice(0, k).reduce((a, s) => a + s.dur, 0) : 0
   return (
-    <section className="ls" aria-label="Live stage">
+    <section className={'ls' + (fill ? ' fill' : '')} aria-label="Live stage">
       <audio ref={au} preload="auto" />
       <div className="ls-stage"><iframe ref={frame} title="Live stage" />{!m && <span className="vp-wait">Setting up your stage…</span>}{note && <span className="ls-note" role="status">{note}</span>}</div>
       <div className="ls-bar">
@@ -128,7 +128,7 @@ export function LiveStage({ plan }: { plan: string }) {
         <input type="range" min={0} max={1000} aria-label="Scrub" value={m ? Math.round((start + t) / m.total * 1000) : 0}
           onChange={e => { if (!m) return; setPlaying(false); let g = +e.target.value / 1000 * m.total, j = 0; while (j < m.scenes.length - 1 && g >= m.scenes[j].dur) { g -= m.scenes[j].dur; j++ } if (j !== k) setK(j); setT(g) }} />
         <span className="ls-time">{(start + t).toFixed(1)}s</span>
-        <button className="ls-hide" onClick={() => setOpen(false)} aria-label="Hide the live stage">⌄</button>
+        {!fill && <button className="ls-hide" onClick={() => setOpen(false)} aria-label="Hide the live stage">⌄</button>}
       </div>
       {(m?.scenes.length ?? 0) > 1 && <div className="an-chips">{m!.scenes.map((s, i) => <button key={s.n} className={i === k ? 'on' : ''} onClick={() => { setPlaying(false); setK(i); setT(0) }}>S{s.n} {s.host}</button>)}</div>}
     </section>

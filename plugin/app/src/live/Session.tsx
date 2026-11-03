@@ -126,7 +126,10 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
     setSessionMode(thread.port, m).then(() => onToast(`Switched to ${modeLabel(m)}`), e => onToast((e as Error).message)) }
   const b = thread?.board
   const onComputer = live.shots.length > 0 || usesDogComputer(live.steps)
-  const showScreen = onComputer && screen !== false
+  // the Watch view (Carl, 2026-11-03: "a watch section like I had in the vm"): the dog computer's screen, or for a robot
+  // video, the live stage the dog and Carl are working on, with its render and the finished MP4 beside the chat
+  const robotWatch = robot && !!card
+  const showScreen = (onComputer || robotWatch) && screen !== false
   if (!thread) return <section className="calm"><button className="calm-quiet sess-back" onClick={onBack}>← Goddard</button><p className="calm-line">Waking the dog for this session…</p></section>
   const msgEl = (m: (typeof msgs)[number]) => noteOf(m) ? <p key={m.id} className="sess-note">{noteOf(m)}</p> : <div key={m.id} className={'sess-msg ' + (m.from === 'user' ? 'me' : 'dog')}>{rich(m.text)}</div>
   const askEl = perm && (
@@ -148,6 +151,14 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
   )
   if (focusUntil > Date.now()) return <FocusView thread={thread} until={focusUntil} last={last?.from === 'assistant' ? last.text : ''} choices={perm ? [] : choices} busy={live.busy.on}
     doing={live.busy.text ?? thread.doing} onPick={say} onExit={() => focusFor(0)} onEnd={() => setFocusUntil(0)} />
+  const overlays = <>
+      {animate && <Animate plan={animate} onClose={() => setAnimate(null)}
+        onExport={() => { setAnimate(null); say('Looks right, export') }}
+        onAsk={() => { setAnimate(null); setDraft('Stage it for me: '); setTimeout(() => sayRef.current?.focus(), 50) }} />}
+      {preview && <VideoPreview plan={preview} onClose={() => setPreview(null)}
+        onExport={() => { setPreview(null); say('Looks right, export') }}
+        onChange={() => { setPreview(null); setDraft('Change a beat: '); setTimeout(() => sayRef.current?.focus(), 50) }} />}
+  </>
   if (showScreen) {
     const done = b?.done ?? [], met = done.filter(d => d.met).length
     const left = thread.auto ? Math.max(0, Math.round((thread.auto.until - Date.now()) / 60000)) : null
@@ -159,35 +170,39 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
         {/* zone 1: the HUD */}
         <header className="scv-hud">
           <button className="scv-p" onClick={() => setScreen(false)} aria-label="Back to the chat view">←</button>
-          <b className="scv-title">{sessionTitle(thread)}<small> · on the dog computer</small></b>
-          <span className="scv-p"><i className={'scv-dot' + (live.busy.on ? ' live' : '')} aria-hidden="true" />{live.busy.on ? 'Live' : 'Idle'}{thread.slot ? ` · screen ${thread.slot}` : ''}</span>
+          <b className="scv-title">{sessionTitle(thread)}<small>{robotWatch ? ' · on your stage' : ' · on the dog computer'}</small></b>
+          <span className="scv-p"><i className={'scv-dot' + (live.busy.on || robotWatch ? ' live' : '')} aria-hidden="true" />{robotWatch ? 'Live stage' : live.busy.on ? 'Live' : 'Idle'}{thread.slot && !robotWatch ? ` · screen ${thread.slot}` : ''}</span>
           <span className="scv-grow" />
           {b && <button className="scv-p" onClick={() => { setScreen(false); setDrawer(true) }} aria-label="Open the plan">
             <span className="scv-bars" aria-hidden="true">{b.phases.map((_, i) => <i key={i} className={i < b.now ? 'd' : i === b.now ? 'n' : ''} />)}</span>
             {b.finished || b.now >= b.phases.length ? 'Done' : `Phase ${b.now + 1} · ${b.phases[b.now]}`}</button>}
           {b && <span className="scv-p"><span className="scv-ok">{met}/{done.length || 1}</span> done</span>}
           {left !== null && <span className="scv-p scv-gold">Auto · {left} min</span>}
-          <button className={'scv-p' + (typing ? ' on' : '')} onClick={() => { setTyping(t => !t); setKeyErr('') }} aria-pressed={typing}>Keyboard</button>
+          {!robotWatch && <button className={'scv-p' + (typing ? ' on' : '')} onClick={() => { setTyping(t => !t); setKeyErr('') }} aria-pressed={typing}>Keyboard</button>}
           <button className="scv-p" onClick={() => setBare(true)}>Full screen</button>
         </header>
         {bare && <button className="scv-p scv-show" onClick={() => setBare(false)}>Show chat</button>}
         {/* zone 2: the screen, never covered */}
-        <div className="scv-screen"><div className="scv-frame">
+        {robotWatch ? <div className="scv-screen"><div className="scv-frame stage"><LiveStage key={card!.path} plan={card!.path} fill /></div></div> : <div className="scv-screen"><div className="scv-frame">
           <iframe key={(typing ? 'c' : 'w') + (thread.slot ?? 0)} src={(thread.slot ? `/dogview/${thread.slot}/` : '/dogview/') + (typing ? '?control' : '')} title="The dog computer's screen, live" />
           {live.busy.on && !typing && <i className="scv-scan" aria-hidden="true" />}
-        </div></div>
+        </div></div>}
         {/* zone 3: the rail (sideways) or the stack under the screen (upright): now doing, chat, choices, composer */}
         <div className="scv-rail">
           <div key={doing} className={'scv-now' + (live.busy.on ? ' live' : '')} role="status" aria-live="polite">{live.busy.on ? <i className="scv-spin" aria-hidden="true" /> : <b className="scv-ok" aria-hidden="true">✓</b>}{doing}</div>
           {trail.length > 0 && <ol className="scv-trail" aria-label="What the dog did">{trail.map(st => <li key={st.id}><span aria-hidden="true">✓</span>{plainStep(st.text)}</li>)}</ol>}
           {typing && <Keys onError={setKeyErr} slot={thread.slot} />}
           {keyErr && <p className="small" role="alert">{keyErr}</p>}
+          {robotWatch && <div className="scv-robot"><ExportCard plan={card!.path} onOpen={path => onView({ kind: 'file', path, type: 'video', name: path.split('/').pop()! })} /><RigRenderCard />
+            {outs.filter(o => o.kind === 'file' && o.type === 'video').slice(-1).map(o => <button key={(o as { path: string }).path} className="scv-p scv-mp4" onClick={() => onView(o)}>▶ {(o as { name: string }).name}</button>)}</div>}
           <div className="scv-chat" role="log">{msgs.slice(-8).map(msgEl)}<div ref={end} /></div>
           {askEl}
           {choicesEl}
-          <button className={'scv-wheel' + (typing ? ' on' : '')} onClick={() => { setTyping(t => !t); setKeyErr('') }} aria-pressed={typing}>{typing ? 'Hand it back' : 'Take the wheel'}</button>
+          {robotWatch ? <div className="scv-two"><button className="scv-wheel" onClick={() => setAnimate(card!.path)}>✎ Animate</button><button className="scv-wheel" onClick={() => setPreview(card!.path)}>▶ Preview</button></div>
+            : <button className={'scv-wheel' + (typing ? ' on' : '')} onClick={() => { setTyping(t => !t); setKeyErr('') }} aria-pressed={typing}>{typing ? 'Hand it back' : 'Take the wheel'}</button>}
           {composer}
         </div>
+        {overlays}
       </section>
     )
   }
@@ -223,7 +238,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
         </aside>
         <div className="sess-talk">
           {onComputer && <DogScreen busy={live.busy.on} onOpen={() => setScreen(true)} slot={thread.slot} />}
-          {card && <LiveStage key={card.path} plan={card.path} />}
+          {robotWatch && <button className="dogbar live" onClick={() => setScreen(true)}><i aria-hidden="true" /><span className="dogbar-what">Your stage · live</span><span aria-hidden="true">Watch ›</span></button>}
           <div className="sess-msgs" role="log">
             <Talk msgs={msgs} who="the dog" choices={perm ? [] : choices} onPick={say} busy={live.busy.on} note={noteOf} />
             {robot && !card && <RigRenderCard />}
@@ -255,12 +270,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
           </form>
         </div>
       </div>
-      {animate && <Animate plan={animate} onClose={() => setAnimate(null)}
-        onExport={() => { setAnimate(null); say('Looks right, export') }}
-        onAsk={() => { setAnimate(null); setDraft('Stage it for me: '); setTimeout(() => sayRef.current?.focus(), 50) }} />}
-      {preview && <VideoPreview plan={preview} onClose={() => setPreview(null)}
-        onExport={() => { setPreview(null); say('Looks right, export') }}
-        onChange={() => { setPreview(null); setDraft('Change a beat: '); setTimeout(() => sayRef.current?.focus(), 50) }} />}
+      {overlays}
     </section>
   )
 }

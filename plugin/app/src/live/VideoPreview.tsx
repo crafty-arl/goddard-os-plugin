@@ -175,6 +175,11 @@ const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).
 export function ExportCard({ plan, onOpen }: { plan: string; onOpen: (path: string) => void }) {
   const [p, setP] = useState<Progress | null>(null)
   const [, tick] = useState(0)
+  // an export made before the latest change to the spec or the keys is marked as such
+  const [stale, setStale] = useState(false)
+  useEffect(() => { if (p?.phase !== 'done') return
+    const ck = () => fetch(`/door/api/robot/watch?plan=${encodeURIComponent(plan)}`).then(r => r.ok ? r.json() : null).then(w => w && setStale(Math.max(w.spec, w.anim) > p.now * 1000 + 1500), () => {})
+    ck(); const iv = window.setInterval(ck, 3000); return () => clearInterval(iv) }, [p?.phase, p?.now, plan])
   const file = plan.replace(/plan\.md$/, 'progress.json')
   useEffect(() => {
     let stop = false, timer = 0
@@ -198,6 +203,7 @@ export function ExportCard({ plan, onOpen }: { plan: string; onOpen: (path: stri
       <b>{head}</b>
       <div className="vx-bars">{Array.from({ length: p.scenes }, (_, k) => <span key={k} className={k < p.done ? 'done' : k === p.on - 1 && live ? 'now' : ''} />)}</div>
       <div className="vx-names">{Array.from({ length: p.scenes }, (_, k) => <span key={k} className={k < p.done ? 'done' : k === p.on - 1 && live ? 'now' : ''}>S{k + 1}</span>)}</div>
+      {p.phase === 'done' && stale && <small>This export is from before your last change. Export again to include it.</small>}
       {p.phase === 'done' && p.mp4 && <button className="vp-go" onClick={() => onOpen(p.mp4!)}>▶ Watch the MP4</button>}
       {p.phase === 'failed' && <small>{p.error}</small>}
       {live && <small>About 45 seconds a scene. The dog messages you when it's done.</small>}
