@@ -12,6 +12,10 @@ sketch.py always writes to.
                                                    what we see change, the shot, how much worse it looks) and writes
                                                    DIR/staging.json for the staging card; gold tags go to <DIR>/../poses-to-add.md
   robot.py spec   <staging.json> --out DIR        the approved staging -> DIR/spec.json and DIR/plan.md (the spec card)
+  robot.py write  <brief.json> --out DIR --estimate   how many Grok calls a draft takes and about what they cost (calls nothing)
+  robot.py write  <brief.json> --out DIR --go         Grok drafts the lines (3 options a beat) and punches them up, through the
+                                                   rig's own lines card; DIR/lines.json, with what each call really cost
+  robot.py lines-spec <lines.json> --out DIR       the picked lines -> DIR/spec.json and DIR/plan.md (the spec card)
   robot.py preview <spec.json> --out DIR          DIR/preview.json: each scene built for the rig's live player (no frames,
                                                    about a second), with its cached voices mixed by their cue times. Never
                                                    voices anything: a line with no cached take plays silent, with its caption
@@ -244,6 +248,95 @@ _reload = _il.reload
 def _reload_with_holds(m): r = _reload(m); return with_holds(r) if getattr(r, "__name__", "") == "sketch" else r
 _il.reload = _reload_with_holds
 
+# Write it with Grok (Carl, 2026-11-03: "it's not funny, I thought you were using Grok"): the rig's writer since Oct 13 is
+# Grok on OpenRouter (pipeline/pilot.py, the standup_lines card). The owner gives the premise and his beats; Grok writes the
+# jokes, three options a beat, then an editor pass punches them up; he picks or edits every line. Every call is paid, so
+# --estimate comes first and the owner says go; each call's real cost is logged in lines.json.
+GROK = os.environ.get("STANDUP_WRITER", "openrouter:x-ai/grok-4.20").split(":", 1)[-1]
+EST_OUT = {"draft": 2200, "punchup": 1800}
+def lines_card():
+    import pilot as P
+    return open(os.path.join(P.CARDS, "tasks", "standup_lines.md")).read()
+def write_prompts(brief, draft=None):
+    card = lines_card()
+    if draft is None:
+        system = card + """
+
+You are the WRITER of The Standup (paper robots, no mouths). Carl's beats below are the spine, in his order; you write the
+jokes on top of them. Be funny: escalate, misdirect, land the payoff. You may add jokes, chat lines and comments.
+For EVERY beat with a say, give "options": three different lines (max 16 words each, best first) and set "say" to the first."""
+        user = json.dumps({"pitch": {k: brief.get(k) for k in ("title", "format", "host", "setup", "turn", "payoff", "props") if brief.get(k)},
+                           "carl_beats": brief.get("beats") or [], "notes": brief.get("notes", "")}, indent=1)
+    else:
+        system = card + """
+
+You are the EDITOR (punch-up). The writer gave three options per beat. For each spoken beat keep the funniest or punch it up:
+return "options" with the best first (at most three), "say" = the first, and "note": why it is funnier (max 12 words).
+Keep Carl's beats and their order. Return the whole spec object, same fields."""
+        user = json.dumps(draft, indent=1)
+    return system, user
+def price():
+    """the model's price per token from OpenRouter's public list (free, no key); GM_ROBOT_PRICE="in,out" per million overrides"""
+    if os.environ.get("GM_ROBOT_PRICE"): i, o = os.environ["GM_ROBOT_PRICE"].split(","); return float(i) / 1e6, float(o) / 1e6
+    import urllib.request
+    try:
+        for m in json.loads(urllib.request.urlopen("https://openrouter.ai/api/v1/models", timeout=20).read())["data"]:
+            if m["id"] == GROK: return float(m["pricing"]["prompt"]), float(m["pricing"]["completion"])
+    except Exception: pass
+    return None
+def estimate(brief):
+    sys_, user = write_prompts(brief); tin = (len(sys_) + len(user)) // 4
+    calls = [{"pass": "draft", "in": tin, "out": EST_OUT["draft"]}, {"pass": "punchup", "in": tin + EST_OUT["draft"], "out": EST_OUT["punchup"]}]
+    pr = price(); usd = round(sum(c["in"] * pr[0] + c["out"] * pr[1] for c in calls), 4) if pr else None
+    return {"model": GROK, "calls": len(calls), "tokens": sum(c["in"] + c["out"] for c in calls), "usd": usd,
+            "say": f"{len(calls)} Grok calls (draft + punch-up), about " + (f"${usd:.3f}" if usd is not None else "a few cents (price list unreachable)")}
+def grok_call(system, user, max_tokens):
+    """one OpenRouter call; GM_ROBOT_STUB=<dir> answers from recorded files instead (tests, $0)"""
+    stub = os.environ.get("GM_ROBOT_STUB")
+    if stub:
+        n = len([f for f in os.listdir(stub) if f.startswith("called-")]); open(os.path.join(stub, f"called-{n}"), "w").write(user[:200])
+        d = json.load(open(os.path.join(stub, f"answer-{n}.json")))
+    else:
+        import urllib.request
+        key = open(os.path.expanduser("~/.config/openrouter/key")).read().strip()
+        body = {"model": GROK, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}], "max_tokens": max_tokens,
+                "temperature": 0.9, "reasoning": {"enabled": False}, "usage": {"include": True}}
+        req = urllib.request.Request("https://openrouter.ai/api/v1/chat/completions", method="POST", data=json.dumps(body).encode(),
+                                     headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "The Standup"})
+        d = json.loads(urllib.request.urlopen(req, timeout=240).read())
+    import re
+    text = re.sub(r"<think>.*?</think>", "", (d.get("choices") or [{}])[0].get("message", {}).get("content") or "", flags=re.S)
+    m = re.search(r"\{.*\}", text, re.S)
+    if not m: raise ValueError(f"Grok sent no JSON: {text[:200]}")
+    u = d.get("usage") or {}
+    return json.loads(m.group(0)), {"model": d.get("model", GROK), "in": u.get("prompt_tokens"), "out": u.get("completion_tokens"), "usd": u.get("cost")}
+def write(brief, out_dir):
+    os.makedirs(out_dir, exist_ok=True); log = []
+    s1, u1 = write_prompts(brief); draft, c1 = grok_call(s1, u1, EST_OUT["draft"] + 800); log.append({"pass": "draft", "at": time.strftime("%Y-%m-%d %H:%M"), **c1})
+    s2, u2 = write_prompts(brief, draft); final, c2 = grok_call(s2, u2, EST_OUT["punchup"] + 800); log.append({"pass": "punchup", "at": time.strftime("%Y-%m-%d %H:%M"), **c2})
+    beats = []
+    for b in final.get("beats") or []:
+        opts = [o for o in (b.get("options") or ([b["say"]] if b.get("say") else [])) if isinstance(o, str) and o.strip()][:3]
+        beats.append({**{k: v for k, v in b.items() if k not in ("options", "say", "note")}, "options": opts, "note": b.get("note", ""), "pick": 0, "say": opts[0] if opts else ""})
+    doc = {"id": brief["id"], "title": brief.get("title") or brief["id"], "brief": brief, "writer": GROK, "spec": {k: v for k, v in final.items() if k != "beats"},
+           "beats": beats, "calls": log, "usd": round(sum(c["usd"] or 0 for c in log), 4), "approved": False}
+    p = os.path.join(out_dir, "lines.json"); json.dump(doc, open(p, "w"), indent=1)
+    # every call's real cost, kept across sketches
+    with open(os.path.join(os.path.dirname(os.path.abspath(out_dir.rstrip("/"))), "grok-costs.jsonl"), "a") as f:
+        for c in log: f.write(json.dumps({"sketch": brief["id"], **c}) + "\n")
+    return p
+def lines_spec(doc):
+    """the owner's picked (or edited) lines as the spec: Grok's staging is kept, every say is his pick"""
+    beats = []
+    for b in doc["beats"]:
+        nb = {k: v for k, v in b.items() if k not in ("options", "note", "pick")}
+        if b.get("options") or b.get("say"): nb["say"] = b.get("say") or b["options"][b.get("pick", 0)]
+        if not nb.get("say"): nb.pop("say", None); nb.setdefault("hold", 1.0)
+        beats.append(nb)
+    spec = {**doc["spec"], "id": doc["id"], "title": doc.get("title") or doc["id"], "beats": beats}
+    spec.setdefault("host", {"robot": doc["brief"].get("host", "Coder"), "pose": "sit"})
+    return spec
+
 def stage_voices(rep):
     """cached takes are copied into this sketch's own work folder, so sketch.py finds them and nothing is voiced again"""
     for l in rep["_lines"]:
@@ -352,7 +445,7 @@ if __name__ == "__main__":
         print(json.dumps({"rig": RIG, "sets": SETS, "rooms": ROOMS, "cast": CAST, "dog": "Biscuit (props.dog: true, sits on the desk)",
                           "actions": SK.ACTIONS, "lights": SK.LIGHTS, "shots": SK.SHOTS, "host_voices": SK.HOST_VOICE,
                           "strip_modes": ["live", "video", "vlog", "plain"]}, indent=1)); sys.exit()
-    if cmd not in ("check", "card", "stage", "spec", "preview", "render") or len(sys.argv) < 3: sys.exit(__doc__)
+    if cmd not in ("check", "card", "stage", "spec", "write", "lines-spec", "preview", "render") or len(sys.argv) < 3: sys.exit(__doc__)
     spec = json.load(open(os.path.expanduser(sys.argv[2])))
     out = os.path.expanduser(arg("--out", "") or "")
     if cmd == "check":
@@ -364,6 +457,19 @@ if __name__ == "__main__":
         os.makedirs(out, exist_ok=True); p = os.path.join(out, "plan.md"); open(p, "w").write(card(spec, r)); print(p); sys.exit()
     if cmd == "preview": print(json.dumps(preview(spec, out), indent=1)); sys.exit()
     if cmd == "stage": print(stage(spec, out)); sys.exit()
+    if cmd == "write":
+        if "--estimate" in sys.argv:
+            e = estimate(spec); os.makedirs(out, exist_ok=True)
+            json.dump({"id": spec["id"], "title": spec.get("title") or spec["id"], "brief": spec, "estimate": e, "beats": [], "approved": False}, open(os.path.join(out, "lines.json"), "w"), indent=1)
+            print(json.dumps(e, indent=1)); sys.exit()
+        if "--go" not in sys.argv: sys.exit("write needs --estimate first, then --go once the owner said yes to that cost")
+        print(write(spec, out)); sys.exit()
+    if cmd == "lines-spec":
+        sp = lines_spec(spec); r = check(sp)
+        if not r["ok"]: sys.exit("The spec from these lines has errors:\n- " + "\n- ".join(r["errors"]))
+        os.makedirs(out, exist_ok=True); json.dump(sp, open(os.path.join(out, "spec.json"), "w"), indent=1)
+        json.dump({**spec, "approved": True}, open(os.path.join(out, "lines.json"), "w"), indent=1)
+        p = os.path.join(out, "plan.md"); open(p, "w").write(card(sp, r)); print(p); sys.exit()
     if cmd == "spec":
         errs = stage_check(spec)
         if errs: sys.exit("Staging has problems:\n- " + "\n- ".join(errs))

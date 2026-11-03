@@ -1271,3 +1271,16 @@ span.scv-p { cursor: default }
 .an-foot .go { background: #D79B45; color: #070707; border-color: #D79B45 } .an-note { font-size: 12px; color: #9C968A; text-align: center; margin: 0 }
 /* the stage stays in view while the lanes and dials scroll under it */
 .an-stage { position: sticky; top: 0; z-index: 5; height: min(48vh, 520px) }
+
+/* Write it with Grok: the cost before the draft, then options per beat */
+.lines { border: 1px solid #D79B45; border-radius: 16px; background: #15130F; padding: 12px; display: flex; flex-direction: column; gap: 10px; margin-top: 12px }
+.lines.ok { border-color: #2C2820 } .lines > b { font: 700 17px 'Playfair Display', serif }
+.lines-beats { margin: 0; padding-left: 20px; color: #CFC9BC; font-size: 13px; display: flex; flex-direction: column; gap: 3px }
+.lines-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px }
+.lines-list li { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 12px; background: #1D1A15; border: 1px solid #2C2820 }
+.lines-list .n { font: 700 10px 'Geist Mono', ui-monospace, monospace; color: #9C968A }
+.lines-opts { display: flex; flex-direction: column; gap: 5px }
+.lines-opts button { text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid #3A342A; background: #15130F; color: #CFC9BC; font: 500 13px inherit; font-family: inherit; cursor: pointer }
+.lines-opts button.on { border-color: #D79B45; color: #F1EEE7; background: #241d12 }
+.lines-list textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 10px; border: 1px solid #3A342A; background: #070707; color: #F1EEE7; font: 600 14px inherit; font-family: inherit; resize: vertical }
+.lines-list small { color: #9C968A; font-size: 12px }

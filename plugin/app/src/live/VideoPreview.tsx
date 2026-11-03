@@ -274,3 +274,57 @@ export function RigRenderCard() {
     )
   })}</>
 }
+
+// Write it with Grok (Carl, 2026-11-03): the owner's premise and beats go to Grok, the rig's own writer. First the card
+// shows what the draft costs and waits for his go; then three options a beat, and he picks or rewrites every line.
+type LineBeat = { who?: string; options: string[]; pick: number; say: string; note?: string }
+type Lines = { id: string; title: string; brief: { beats?: string[]; setup?: string; payoff?: string }; estimate?: { calls: number; usd: number | null; say: string }; beats: LineBeat[]; usd?: number; approved?: boolean; writer?: string }
+
+export function LinesCard({ path, onSay, onOwn }: { path: string; onSay: (t: string) => void; onOwn: () => void }) {
+  const [d, setD] = useState<Lines | null>(null)
+  const [edit, setEdit] = useState<LineBeat[]>([])
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    let stop = false, timer = 0
+    const read = () => fetch(fileUrl(path, Date.now())).then(r => r.ok ? r.json() : null).then((j: Lines | null) => {
+      if (stop) return
+      setD(prev => { if (j && (!prev || prev.beats.length !== j.beats.length || prev.approved !== j.approved)) setEdit(j.beats.map(b => ({ ...b }))); return j })
+      timer = window.setTimeout(read, 4000) }, () => { if (!stop) timer = window.setTimeout(read, 6000) })
+    read(); return () => { stop = true; clearTimeout(timer) }
+  }, [path])
+  if (!d) return null
+  const cost = (u?: number | null) => u == null ? 'a few cents' : `$${u.toFixed(3)}`
+  if (!d.beats.length) return (
+    <section className="lines" aria-label="Write it with Grok">
+      <span className="eyebrow">Write it with Grok · waiting on you</span>
+      <b>{d.title}</b>
+      {(d.brief.beats ?? []).length > 0 && <ol className="lines-beats">{d.brief.beats!.map((b, i) => <li key={i}>{b}</li>)}</ol>}
+      <p className="calm-sub">Grok writes three options for every beat, then punches them up. You pick or rewrite each line.</p>
+      <div className="stg-btns"><button onClick={onOwn}>I'll write my own</button>
+        <button className="go" onClick={() => onSay(`Go Grok draft (${d.estimate?.calls ?? 2} calls, about ${cost(d.estimate?.usd)})`)}>Draft with Grok · {cost(d.estimate?.usd)}</button></div>
+    </section>
+  )
+  return (
+    <section className={'lines' + (d.approved ? ' ok' : '')} aria-label="Grok's draft">
+      <span className="eyebrow">Grok's draft · {d.approved ? 'lines picked' : 'pick your lines'}{d.usd ? ` · cost ${cost(d.usd)}` : ''}</span>
+      <b>{d.title}</b>
+      <ol className="lines-list">
+        {edit.map((b, i) => (
+          <li key={i}>
+            <span className="n">{i + 1}{b.who && b.who !== 'host' ? ` · ${b.who}` : ''}</span>
+            {b.options.length > 0 ? <>
+              <div className="lines-opts">{b.options.map((o, j) => <button key={j} className={b.pick === j && b.say === o ? 'on' : ''} disabled={d.approved}
+                onClick={() => setEdit(e => e.map((x, k) => k === i ? { ...x, pick: j, say: o } : x))}>{o}</button>)}</div>
+              <textarea rows={2} value={b.say} disabled={d.approved} aria-label={`Line ${i + 1}`} onChange={e => setEdit(ed => ed.map((x, k) => k === i ? { ...x, say: e.target.value } : x))} />
+              {b.note && <small>{b.note}</small>}
+            </> : <small>(silent beat)</small>}
+          </li>
+        ))}
+      </ol>
+      {!d.approved && <div className="stg-btns"><button onClick={() => onSay('Redraft with Grok')}>Redraft</button>
+        <button className="go" disabled={busy} onClick={() => { setBusy(true)
+          fetch('/door/api/robot/lines', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path, picks: edit.map(b => ({ pick: b.pick, say: b.say })) }) })
+            .then(r => { setBusy(false); if (r.ok) onSay('Use these lines') }, () => setBusy(false)) }}>Use these lines →</button></div>}
+    </section>
+  )
+}

@@ -998,6 +998,21 @@ async function rigRenders(): Promise<object[]> {
   }
   return Object.values(out)
 }
+// saves the owner's picks on a Grok draft (the lines card): which option each beat uses, or the line as he edited it
+function saveLines(path: string, picks: unknown): Response {
+  if (!has('rig')) return Response.json({ error: 'The video rig is off in Setup.' }, { status: 400 })
+  const out = realpathSync(home(rigOut())), want = resolve(home(path))
+  if (!want.startsWith(out + '/') || !want.endsWith('/lines.json') || !existsSync(want)) return Response.json({ error: 'No lines to update there.' }, { status: 400 })
+  if (!Array.isArray(picks)) return Response.json({ error: 'The picks are not a list.' }, { status: 400 })
+  const doc = JSON.parse(readFileSync(want, 'utf8'))
+  picks.forEach((p: { pick?: number; say?: string }, i: number) => {
+    const b = doc.beats?.[i]; if (!b || typeof p !== 'object') return
+    if (typeof p.pick === 'number' && p.pick >= 0 && p.pick < (b.options?.length ?? 0)) b.pick = p.pick
+    if (typeof p.say === 'string' && p.say.trim()) b.say = p.say.trim().slice(0, 160)
+  })
+  writeFileSync(want, JSON.stringify(doc, null, 1))
+  return Response.json({ ok: true })
+}
 // saves the owner's keyframes for a sketch (the Animate screen): anim.json beside its spec, read by robot.py preview and render
 function saveAnim(plan: string, anim: unknown): Response {
   if (!has('rig')) return Response.json({ error: 'The video rig is off in Setup.' }, { status: 400 })
@@ -1329,6 +1344,7 @@ Bun.serve({
     if (url.pathname === '/api/slots' && req.method === 'GET') return Response.json({ slots: slotsOf(await threads(), loadTasks()) })
     if (url.pathname === '/api/file' && req.method === 'GET') return readOutput(url.searchParams.get('path') ?? '')
     if (url.pathname.startsWith('/rig/') && req.method === 'GET') return readRig(url.pathname.slice(5))
+    if (url.pathname === '/api/robot/lines' && req.method === 'POST') { try { const j = await req.json(); return saveLines(String(j.path ?? ''), j.picks) } catch (e) { return Response.json({ error: (e as Error).message }, { status: 400 }) } }
     if (url.pathname === '/api/robot/anim' && req.method === 'POST') { try { const j = await req.json(); return saveAnim(String(j.plan ?? ''), j.anim) } catch (e) { return Response.json({ error: (e as Error).message }, { status: 400 }) } }
     if (url.pathname === '/api/robot/renders' && req.method === 'GET') return Response.json({ renders: await rigRenders() })
     if (url.pathname === '/api/robot/preview' && req.method === 'POST') { try { return await robotPreview(String((await req.json()).plan ?? '')) } catch (e) { return Response.json({ error: (e as Error).message }, { status: 400 }) } }
