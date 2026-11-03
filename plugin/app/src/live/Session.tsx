@@ -12,7 +12,7 @@ const docOf = (path: string): Output => ({ kind: 'file', path, type: 'md', name:
 import { linkify } from './ChatPanel'
 import { Attach, Voice, grow } from './dock'
 import { DogScreen, Keys, usesDogComputer } from './DogScreen'
-import { VideoPreview, ExportCard, StagingCard } from './VideoPreview'
+import { VideoPreview, ExportCard, StagingCard, RigRenderCard } from './VideoPreview'
 import { Talk, rich, grouped, useBionic, setBionic, usePace, setPace, type Pace } from './talk'
 
 const DRAFT = 'goddard.session-draft'
@@ -220,6 +220,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
           {onComputer && <DogScreen busy={live.busy.on} onOpen={() => setScreen(true)} slot={thread.slot} />}
           <div className="sess-msgs" role="log">
             <Talk msgs={msgs} who="the dog" choices={perm ? [] : choices} onPick={say} busy={live.busy.on} note={noteOf} />
+            {robot && !card && <RigRenderCard />}
             {staging && <StagingCard path={staging} onApprove={() => say('Looks right → spec')}
               onChange={() => { setDraft('Change a beat: '); setTimeout(() => sayRef.current?.focus(), 50) }} />}
             {outs.length > 0 && <div className="sess-outs">

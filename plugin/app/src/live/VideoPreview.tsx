@@ -247,3 +247,30 @@ export function StagingCard({ path, onChange, onApprove }: { path: string; onCha
     </section>
   )
 }
+
+// Any render running on the rig, however it was started (a dog's own script, standup.py, the skill's export): the door
+// reads it from the outside, so a long render never goes quiet. The export card covers a sketch the skill rendered;
+// this covers the rest.
+type RigRender = { id: string; scene: number; scenes: number; frames: number; total: number; phase: 'frames' | 'compose' }
+export function RigRenderCard() {
+  const [rs, setRs] = useState<RigRender[]>([])
+  const since = useRef<Record<string, number>>({})
+  useEffect(() => {
+    let stop = false, timer = 0
+    const read = () => fetch('/door/api/robot/renders').then(r => r.ok ? r.json() : { renders: [] }).then(j => { if (!stop) { setRs(j.renders ?? []); timer = window.setTimeout(read, 2000) } }, () => { if (!stop) timer = window.setTimeout(read, 5000) })
+    read(); return () => { stop = true; clearTimeout(timer) }
+  }, [])
+  if (!rs.length) return null
+  return <>{rs.map(r => {
+    since.current[r.id] ??= Date.now()
+    const pct = r.total ? Math.round(r.frames / r.total * 100) : 0, secs = (Date.now() - since.current[r.id]) / 1000
+    return (
+      <section key={r.id} className="vx" aria-live="polite">
+        <span className="eyebrow">Rendering on your Mac</span>
+        <b>{r.id.replace(/_/g, ' ')} · scene {r.scene}{r.scenes > 1 ? ` of ${r.scenes}` : ''} · {r.phase === 'compose' ? 'adding sound' : `${pct}%`}</b>
+        <div className="vx-bars">{Array.from({ length: Math.max(1, r.scenes) }, (_, k) => <span key={k} className={k < r.scene - 1 ? 'done' : k === r.scene - 1 ? 'now' : ''} style={k === r.scene - 1 && r.phase === 'frames' ? { background: `linear-gradient(90deg, #F1EEE7 ${pct}%, #2E2920 ${pct}%)`, animation: 'none' } : undefined} />)}</div>
+        <small>{r.frames} of {r.total} frames{secs > 5 ? ` · watching for ${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}` : ''}. The dog messages you when it lands.</small>
+      </section>
+    )
+  })}</>
+}

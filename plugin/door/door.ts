@@ -977,6 +977,27 @@ function readRig(rel: string): Response {
   const fresh = sub.startsWith('pipeline/work/') || page
   return new Response(Bun.file(real), { headers: { 'content-type': type, 'x-content-type-options': 'nosniff', 'cache-control': fresh ? 'no-store' : 'max-age=3600' } })
 }
+// every render running on the rig, however it was started (the skill's export, a dog's own script, standup.py): read
+// from the outside. The frame step is the rig's set_shots.mjs, whose FRAMES_DIR fills with one JPEG per frame; the
+// scene file says how many there will be. Then compose.py puts the scene's sound and strip on.
+async function rigRenders(): Promise<object[]> {
+  if (!has('rig')) return []
+  const root = rigRoot(), out: Record<string, { id: string; scene: number; scenes: number; frames: number; total: number; phase: string }> = {}
+  const ps = await new Response(Bun.spawn(['ps', '-axwwE', '-o', 'command='], { stdout: 'pipe', stderr: 'ignore' }).stdout).text()
+  for (const line of ps.split('\n')) {
+    const m = line.match(/(set_shots\.mjs render|brains\/compose\.py) (pipeline\/work\/([^/\s]+)\/scene(?:_wide)?\.json)/)
+    if (!m) continue
+    const sid = m[3], base = sid.replace(/_s\d+$/, ''), n = Number(sid.match(/_s(\d+)$/)?.[1] ?? 1)
+    let total = 0, frames = 0
+    try { const sc = JSON.parse(readFileSync(join(root, m[2]), 'utf8')); total = Math.round(sc.duration * (sc.fps || 60)) } catch {}
+    const fd = line.match(/ FRAMES_DIR=(\S+)/)?.[1]
+    if (fd && existsSync(fd)) frames = readdirSync(fd).filter(f => /^f\d+\.jpg$/.test(f)).length
+    const scenes = Math.max(n, readdirSync(join(root, 'pipeline', 'work')).filter(f => f.startsWith(base + '_s') && /_s\d+\.json$/.test(f)).length)
+    const phase = m[1].startsWith('set_shots') ? 'frames' : 'compose'
+    if (!out[base] || phase === 'frames') out[base] = { id: base, scene: n, scenes, frames: phase === 'frames' ? Math.min(frames, total) : total, total, phase }
+  }
+  return Object.values(out)
+}
 // builds the preview for a spec card's sketch (robot.py preview: scene files and a voice mix, no frames, never voices anything)
 async function robotPreview(plan: string): Promise<Response> {
   if (!has('rig')) return Response.json({ error: 'The video rig is off in Setup.' }, { status: 400 })
@@ -1298,6 +1319,7 @@ Bun.serve({
     if (url.pathname === '/api/slots' && req.method === 'GET') return Response.json({ slots: slotsOf(await threads(), loadTasks()) })
     if (url.pathname === '/api/file' && req.method === 'GET') return readOutput(url.searchParams.get('path') ?? '')
     if (url.pathname.startsWith('/rig/') && req.method === 'GET') return readRig(url.pathname.slice(5))
+    if (url.pathname === '/api/robot/renders' && req.method === 'GET') return Response.json({ renders: await rigRenders() })
     if (url.pathname === '/api/robot/preview' && req.method === 'POST') { try { return await robotPreview(String((await req.json()).plan ?? '')) } catch (e) { return Response.json({ error: (e as Error).message }, { status: 400 }) } }
     if (url.pathname === '/api/sessions' && req.method === 'GET') return Response.json({ sessions: await otherSessions() })
     if (url.pathname === '/api/track' && req.method === 'POST') { try { track(await req.json()) } catch {} return Response.json({ ok: true }) }
