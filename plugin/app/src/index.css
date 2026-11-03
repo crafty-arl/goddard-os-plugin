@@ -1234,3 +1234,40 @@ span.scv-p { cursor: default }
 .stg-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px } .stg-btns button { padding: 12px; border-radius: 99px; font: 700 13px inherit; font-family: inherit; border: 1px solid #2C2820; background: #15130F; color: #F1EEE7; cursor: pointer }
 .stg-btns .go { background: #D79B45 !important; color: #070707 !important; border-color: #D79B45 }
 .vp-tap { position: absolute; inset: 0; z-index: 2; background: transparent; border: 0; cursor: pointer } .vp-play { z-index: 3 }
+
+/* Animate: the owner poses the robots on his own stage */
+.vp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px } .an-open { background: #4FA3A5 !important; color: #070707 !important }
+.an { position: fixed; inset: 0; z-index: 60; background: #0B0A08; color: #F1EEE7; display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+  padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) }
+.an-nav { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #2C2820; padding-bottom: 8px } .an-nav b { flex: 1; text-align: center; font: 700 17px 'Playfair Display', serif }
+.an-nav span { font: 700 9px 'Geist Mono', ui-monospace, monospace; color: #4FA3A5; letter-spacing: .08em; min-width: 64px; text-align: right }
+.an-cast, .an-chips { display: flex; gap: 5px; flex-wrap: wrap }
+.an-cast button, .an-chips button { padding: 6px 10px; border-radius: 99px; border: 1px solid #3A342A; background: none; color: #CFC9BC; font: 600 12px inherit; font-family: inherit; cursor: pointer }
+.an-cast button.on { border-color: #F1EEE7; color: #F1EEE7; background: #1D1A15 } .an-chips button.on { background: #D79B45; color: #070707; border-color: #D79B45 }
+.an-stage { position: relative; width: 100%; height: min(58vh, 560px); flex: none; border-radius: 14px; overflow: hidden; border: 1px solid #2C2820; background: #0B0A08 }
+.an-stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0 }
+.an-touch { position: absolute; inset: 0; z-index: 2; touch-action: none; cursor: crosshair }
+.an-sel { position: absolute; top: 8px; left: 8px; z-index: 3; padding: 4px 9px; border-radius: 99px; background: #D79B45; color: #070707; font: 700 10px 'Geist Mono', ui-monospace, monospace; pointer-events: none }
+.an-camtag { position: absolute; top: 8px; right: 8px; z-index: 3; padding: 4px 9px; border-radius: 99px; background: rgba(7,7,7,.8); border: 1px solid #3A342A; font: 700 9px 'Geist Mono', ui-monospace, monospace; pointer-events: none }
+.an-hint { position: absolute; left: 8px; bottom: 8px; z-index: 3; padding: 4px 8px; border-radius: 8px; background: rgba(7,7,7,.75); font: 500 10px 'Geist Mono', ui-monospace, monospace; color: #CFC9BC; pointer-events: none }
+.an-track, .an-panel { border: 1px solid #2C2820; border-radius: 12px; background: #15130F; padding: 10px; display: flex; flex-direction: column; gap: 8px }
+.an-row { display: flex; align-items: center; gap: 8px }
+.an-play { width: 40px; height: 40px; border-radius: 50%; background: #D79B45; color: #070707; border: 0; font-size: 15px; flex: none; cursor: pointer }
+.an-time { font: 500 11px 'Geist Mono', ui-monospace, monospace; color: #9C968A; min-width: 54px; font-variant-numeric: tabular-nums }
+.an-btns { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; justify-content: flex-end }
+.an-btns button { padding: 8px 10px; border-radius: 99px; border: 1px solid #2C2820; background: #1D1A15; color: #F1EEE7; font: 700 11px inherit; font-family: inherit; cursor: pointer }
+.an-btns .k { background: #F1EEE7; color: #070707; border-color: #F1EEE7 } .an-btns button:disabled { opacity: .4 }
+.an-lbl { font: 700 9px 'Geist Mono', ui-monospace, monospace; color: #9C968A; width: 74px; letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis }
+.an-lane { position: relative; flex: 1; height: 36px; border-radius: 8px; background: #070707; border: 1px solid #3A342A; touch-action: none; cursor: pointer; overflow: hidden }
+.an-lane .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: #2C2820 }
+.an-lane .key { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; transform: rotate(45deg); background: #F1EEE7; border: 2px solid #070707; border-radius: 2px }
+.an-lane .key.cur { background: #D79B45 } .an-lane .ph { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #D79B45; z-index: 2 }
+.an-lane.voice .clip { position: absolute; top: 5px; bottom: 5px; border-radius: 5px; background: #2E4A4B; color: #DDEFEF; font: 500 9px 'Geist Mono', ui-monospace, monospace; padding: 0 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 26px }
+.an-lane.voice .clip.silent { background: repeating-linear-gradient(45deg, #3a3124 0 4px, #2a2318 4px 8px); color: #D79B45 }
+.an-lbl2 { font: 700 9px 'Geist Mono', ui-monospace, monospace; letter-spacing: .1em; color: #9C968A; display: flex; justify-content: space-between } .an-lbl2 em { font-style: normal; color: #D79B45 }
+.an-sl { display: grid; grid-template-columns: 52px minmax(0, 1fr) 40px; gap: 8px; align-items: center; font: 500 11px 'Geist Mono', ui-monospace, monospace; color: #CFC9BC }
+.an-sl input { width: 100%; accent-color: #D79B45 } .an-sl input:disabled { opacity: .25 } .an-sl output { text-align: right; color: #9C968A }
+.an-foot { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px } .an-foot button { padding: 12px; border-radius: 99px; font: 700 13px inherit; font-family: inherit; border: 1px solid #2C2820; background: #15130F; color: #F1EEE7; cursor: pointer }
+.an-foot .go { background: #D79B45; color: #070707; border-color: #D79B45 } .an-note { font-size: 12px; color: #9C968A; text-align: center; margin: 0 }
+/* the stage stays in view while the lanes and dials scroll under it */
+.an-stage { position: sticky; top: 0; z-index: 5; height: min(48vh, 520px) }

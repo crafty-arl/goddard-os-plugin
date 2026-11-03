@@ -13,6 +13,7 @@ import { linkify } from './ChatPanel'
 import { Attach, Voice, grow } from './dock'
 import { DogScreen, Keys, usesDogComputer } from './DogScreen'
 import { VideoPreview, ExportCard, StagingCard, RigRenderCard } from './VideoPreview'
+import { Animate } from './Animate'
 import { Talk, rich, grouped, useBionic, setBionic, usePace, setPace, type Pace } from './talk'
 
 const DRAFT = 'goddard.session-draft'
@@ -109,6 +110,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
   // the spec card's sketch plays live before it renders; export and changes go back through the dog
   const card = [...outs].reverse().find(o => o.kind === 'file' && /(^|\/)plan\.md$/.test(o.path)) as Extract<Output, { kind: 'file' }> | undefined
   const [preview, setPreview] = useState<string | null>(null)
+  const [animate, setAnimate] = useState<string | null>(null)
   // the staging the dog wrote (the newest staging.json it named), drawn as the staging card above the spec
   const staging = robot ? [...msgs].reverse().filter(m => m.from === 'assistant').map(m => m.text.match(/(?:~|\/)[^\s`'"]*\/staging\.json/)?.[0]).find(Boolean) : undefined
   const sayRef = useRef<HTMLTextAreaElement>(null)
@@ -224,7 +226,7 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
             {staging && <StagingCard path={staging} onApprove={() => say('Looks right → spec')}
               onChange={() => { setDraft('Change a beat: '); setTimeout(() => sayRef.current?.focus(), 50) }} />}
             {outs.length > 0 && <div className="sess-outs">
-              {card && <><button className="vp-open" onClick={() => setPreview(card.path)}>▶ Preview it live</button><span className="vp-hint">Plays in seconds. Nothing renders yet.</span></>}
+              {card && <><div className="vp-two"><button className="vp-open an-open" onClick={() => setAnimate(card.path)}>✎ Animate it</button><button className="vp-open" onClick={() => setPreview(card.path)}>▶ Preview it live</button></div><span className="vp-hint">You pose it, or watch it as is. Nothing renders yet.</span></>}
               {card && <ExportCard plan={card.path} onOpen={path => onView({ kind: 'file', path, type: 'video', name: path.split('/').pop()! })} />}
               <PlanCards outputs={outs} />
               <OutputStrip outputs={outs} onOpen={onView} /></div>}
@@ -248,6 +250,9 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
           </form>
         </div>
       </div>
+      {animate && <Animate plan={animate} onClose={() => setAnimate(null)}
+        onExport={() => { setAnimate(null); say('Looks right, export') }}
+        onAsk={() => { setAnimate(null); setDraft('Stage it for me: '); setTimeout(() => sayRef.current?.focus(), 50) }} />}
       {preview && <VideoPreview plan={preview} onClose={() => setPreview(null)}
         onExport={() => { setPreview(null); say('Looks right, export') }}
         onChange={() => { setPreview(null); setDraft('Change a beat: '); setTimeout(() => sayRef.current?.focus(), 50) }} />}

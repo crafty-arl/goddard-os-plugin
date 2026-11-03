@@ -198,14 +198,44 @@ def hold_close(scene_path, beats):
             tr[:] = sorted(keep + new, key=lambda e: e[0]); changed = True
     if changed: json.dump(scene, open(scene_path, "w"))
 
+# the owner's own animation (Carl, 2026-11-03: "I don't have control over the video"): anim.json beside the spec holds the
+# tracks he keyed in Goddard OS's Animate screen, per scene. They replace the action library's channels they cover, so
+# the render plays exactly what he keyed.
+ANIM = {}
+ARM_IK = {"armL": ("handL", "handLFrom", "handLUntil", "handLPole"), "armR": ("handR", "handRFrom", "handRUntil", "handRPole")}
+def apply_anim(scene_path, sid):
+    a = (ANIM.get("scenes") or {}).get(sid)
+    if not a: return
+    scene = json.load(open(scene_path))
+    for c in scene.get("cast") or []:
+        tr = (a.get("cast") or {}).get(c["robot"])
+        if not tr: continue
+        an = c.setdefault("anim", {})
+        for k, v in tr.items(): an[k] = v
+        for arm, ik in ARM_IK.items():          # a keyed arm is posed by its joints: the hand target would override it
+            if arm in tr:
+                for x in ik: an.pop(x, None)
+        if {"armL", "armR", "lean", "twist", "roll"} & set(tr): an.pop("flail", None); an.pop("twitch", None)
+    if a.get("camera"):
+        scene["camera"] = a["camera"]
+        for k in ("camShake", "camSway"): scene.pop(k, None)
+    if a.get("focus"): scene["focus"] = a["focus"]
+    json.dump(scene, open(scene_path, "w"))
+
+def load_anim(out_dir):
+    p = os.path.join(out_dir, "anim.json")
+    ANIM.clear()
+    if os.path.exists(p): ANIM.update(json.load(open(p)))
+
 def with_holds(mod):
     """wraps the rig's compiler (from out here) so every compiled scene gets its held punches"""
     orig = mod.compile_spec
     if getattr(orig, "_holds", False): return mod
     def compile_spec(spec, voice_only=False):
         r = orig(spec, voice_only)
-        if voice_only or not any(b.get("x_hold_close") for b in spec.get("beats") or []): return r
-        hold_close(r[0], orig(spec, True)); return r
+        if voice_only: return r
+        if any(b.get("x_hold_close") for b in spec.get("beats") or []): hold_close(r[0], orig(spec, True))
+        apply_anim(r[0], spec.get("id")); return r
     compile_spec._holds = True; mod.compile_spec = compile_spec
     return mod
 with_holds(SK)
@@ -229,7 +259,7 @@ def preview(spec, out_dir):
     preview.wav (its voices at their cue times; the render's room tone and sound effects are left out)."""
     rep = check(spec)
     if not rep["ok"]: sys.exit("Spec has errors:\n- " + "\n- ".join(rep["errors"]))
-    stage_voices(rep)
+    stage_voices(rep); load_anim(out_dir)
     real_tts, silent = SK.tts, []
     def no_spend_tts(text, voice, phone, od):
         # a cached take is used as is; anything else gets a silent stand-in of about its spoken length, never the API.
@@ -284,7 +314,7 @@ def render(spec, out_dir, fmt, allow_new):
     if not rep["ok"]: sys.exit("Spec has errors:\n- " + "\n- ".join(rep["errors"]))
     if rep["new"] and not allow_new:
         sys.exit(f"{rep['new']} line(s) need new voices ({rep['new_chars']} characters, paid). Ask first, then pass --allow-new-voices.")
-    stage_voices(rep)
+    stage_voices(rep); load_anim(out_dir)
     os.makedirs(out_dir, exist_ok=True)
     spec_path = os.path.join(out_dir, "spec.json"); json.dump(spec, open(spec_path, "w"), indent=1)
     os.environ.update({"STANDUP_MASTERS": out_dir, "FORMAT": fmt})

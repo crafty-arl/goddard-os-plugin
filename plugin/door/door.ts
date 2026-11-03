@@ -998,6 +998,16 @@ async function rigRenders(): Promise<object[]> {
   }
   return Object.values(out)
 }
+// saves the owner's keyframes for a sketch (the Animate screen): anim.json beside its spec, read by robot.py preview and render
+function saveAnim(plan: string, anim: unknown): Response {
+  if (!has('rig')) return Response.json({ error: 'The video rig is off in Setup.' }, { status: 400 })
+  const out = realpathSync(home(rigOut())), dir = resolve(dirname(home(plan)))
+  if (!(dir === out || dir.startsWith(out + '/')) || !existsSync(join(dir, 'spec.json'))) return Response.json({ error: 'No sketch spec next to that card.' }, { status: 400 })
+  const body = JSON.stringify(anim)
+  if (!anim || typeof anim !== 'object' || body.length > 2_000_000) return Response.json({ error: 'That animation is not one Goddard OS can save.' }, { status: 400 })
+  writeFileSync(join(dir, 'anim.json'), body)
+  return Response.json({ ok: true, path: join(dir, 'anim.json') })
+}
 // builds the preview for a spec card's sketch (robot.py preview: scene files and a voice mix, no frames, never voices anything)
 async function robotPreview(plan: string): Promise<Response> {
   if (!has('rig')) return Response.json({ error: 'The video rig is off in Setup.' }, { status: 400 })
@@ -1319,6 +1329,7 @@ Bun.serve({
     if (url.pathname === '/api/slots' && req.method === 'GET') return Response.json({ slots: slotsOf(await threads(), loadTasks()) })
     if (url.pathname === '/api/file' && req.method === 'GET') return readOutput(url.searchParams.get('path') ?? '')
     if (url.pathname.startsWith('/rig/') && req.method === 'GET') return readRig(url.pathname.slice(5))
+    if (url.pathname === '/api/robot/anim' && req.method === 'POST') { try { const j = await req.json(); return saveAnim(String(j.plan ?? ''), j.anim) } catch (e) { return Response.json({ error: (e as Error).message }, { status: 400 }) } }
     if (url.pathname === '/api/robot/renders' && req.method === 'GET') return Response.json({ renders: await rigRenders() })
     if (url.pathname === '/api/robot/preview' && req.method === 'POST') { try { return await robotPreview(String((await req.json()).plan ?? '')) } catch (e) { return Response.json({ error: (e as Error).message }, { status: 400 }) } }
     if (url.pathname === '/api/sessions' && req.method === 'GET') return Response.json({ sessions: await otherSessions() })
