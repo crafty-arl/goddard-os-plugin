@@ -8,6 +8,10 @@ sketch.py always writes to.
   robot.py lists                                   what the rig has: sets, rooms, cast, actions, lights, shots, voices
   robot.py check  <spec.json>                      errors, plus how many lines are voiced, cached (free) and new (paid)
   robot.py card   <spec.json> --out DIR            DIR/plan.md, the spec as a short card for the owner's Go
+  robot.py stage  <staging.json> --out DIR        checks the staging (one row per beat: the owner's line word for word, its kind,
+                                                   what we see change, the shot, how much worse it looks) and writes
+                                                   DIR/staging.json for the staging card; gold tags go to <DIR>/../poses-to-add.md
+  robot.py spec   <staging.json> --out DIR        the approved staging -> DIR/spec.json and DIR/plan.md (the spec card)
   robot.py preview <spec.json> --out DIR          DIR/preview.json: each scene built for the rig's live player (no frames,
                                                    about a second), with its cached voices mixed by their cue times. Never
                                                    voices anything: a line with no cached take plays silent, with its caption
@@ -99,6 +103,116 @@ def card(spec, report):
     out += ["", f"**Voices:** {report['lines']} lines · {report['cached']} cached (free) · {report['new']} new"
             + (f" ({report['new_chars']} characters on Workers AI, a few cents)" if report["new"] else " (no spend)")]
     return "\n".join(out) + "\n"
+
+KINDS = ("SETUP", "BUILD", "TURN", "PAUSE", "PUNCH")
+BEAT_KEYS = ("act", "light", "shot", "fx", "chapter", "chat", "badge", "pop", "sfx")
+
+def visible(b):
+    """what a viewer can actually see change on a beat: the rig fields, not the description"""
+    fx = b.get("fx") or {}
+    return (b.get("act"), b.get("light"), b.get("shot"), b.get("chapter"), int(fx.get("boxes", 0)), bool(fx.get("windows")), bool(fx.get("spray")))
+
+def stage_check(st):
+    """The staging rules (Carl, 2026-11-02: "the picture has to tell the joke too"). Returns a list of what's wrong."""
+    errs, lines = [], st.get("lines") or []
+    if not str(st.get("id", "")).strip(): errs.append("the staging needs an id")
+    if st.get("host") not in CAST: errs.append(f"host {st.get('host')!r} is not one of the cast {CAST}")
+    if st.get("room") and st["room"] not in ROOMS: errs.append(f"room {st['room']!r} is not one of the painted rooms")
+    if not lines: errs.append('"lines" must list the owner\'s lines exactly as they gave them')
+    beats, last_build = st.get("beats") or [], None
+    if not beats: errs.append("no beats")
+    for i, b in enumerate(beats):
+        w, kind = f"beat {i + 1}: ", b.get("kind")
+        if kind not in KINDS: errs.append(f"{w}kind must be one of {KINDS}"); continue
+        if not str(b.get("see", "")).strip(): errs.append(f"{w}say what we SEE change (prop, screen, position, pose, light)")
+        for key, ok in (("act", SK.ACTIONS), ("light", SK.LIGHTS), ("shot", SK.SHOTS)):
+            if b.get(key) and b[key] not in ok: errs.append(f"{w}{key} {b[key]!r} is not in the rig's list {ok}")
+        if b.get("shot") == "tight": errs.append(f"{w}no \"tight\": in a painted 3D room the rig turns it into a low off-center angle. Use close (centered) or push")
+        if kind == "PAUSE":
+            if b.get("say"): errs.append(f"{w}a PAUSE is silent")
+            if not 1.0 <= float(b.get("hold", 0)) <= 1.5: errs.append(f"{w}a PAUSE holds 1 to 1.5 seconds (\"hold\")")
+            if i + 1 >= len(beats) or beats[i + 1].get("kind") != "PUNCH": errs.append(f"{w}a PAUSE comes right before a PUNCH")
+        else:
+            if not b.get("say"): errs.append(f"{w}{kind} needs the owner's line (only a PAUSE is silent)")
+            elif b["say"] not in lines: errs.append(f"{w}the line {b['say']!r} is not one of the owner's lines word for word")
+        if kind == "PUNCH":
+            if i == 0 or beats[i - 1].get("kind") != "PAUSE": errs.append(f"{w}every PUNCH has a silent PAUSE right before it")
+            if b.get("shot") != "close" or beats[i - 1].get("shot") not in (None, "close"): errs.append(f"{w}the PAUSE and the PUNCH sit on a centered close (shot: close)")
+        if kind == "BUILD":
+            if last_build is not None:
+                pb = beats[last_build]
+                if int(b.get("esc", 0)) <= int(pb.get("esc", 0)): errs.append(f"{w}each BUILD looks worse than the last: esc must go up from {pb.get('esc', 0)}")
+                if visible(b) == visible(pb): errs.append(f"{w}this BUILD looks the same as beat {last_build + 1}: change something the viewer can see (boxes, light, act, shot, chapter)")
+            last_build = i
+        if (b.get("fx") or {}).get("boxes") and any(x.get("shot") == "close" for x in beats[i + 1:]):
+            errs.append(f"{w}fx.boxes buries the host (the pile lands on him and stays), so the close-up later would show only boxes. Escalate with light, act, chapter or shot, or tag \"new prop: app pile beside the desk\"")
+        for t in b.get("new") or []:
+            if not isinstance(t, str) or not t.strip(): errs.append(f"{w}gold tags are short strings like \"new pose: tired\"")
+    return errs
+
+def stage(st, out_dir):
+    errs = stage_check(st)
+    if errs: sys.exit("Staging has problems:\n- " + "\n- ".join(errs))
+    os.makedirs(out_dir, exist_ok=True)
+    st = {**st, "approved": bool(st.get("approved"))}
+    p = os.path.join(out_dir, "staging.json"); json.dump(st, open(p, "w"), indent=1)
+    # every gold tag (a move or prop the rig can't do yet) goes on one list for the rig work later, once each
+    tags = [t.strip() for b in st["beats"] for t in (b.get("new") or [])]
+    if tags:
+        todo = os.path.join(os.path.dirname(os.path.abspath(out_dir.rstrip("/"))), "poses-to-add.md")
+        have = open(todo).read() if os.path.exists(todo) else "# Poses and props to add to the rig\n\nGold tags from staging cards: moves or props a sketch wanted that the rig can't do yet.\n\n"
+        add = [t for t in dict.fromkeys(tags) if f"- {t} " not in have]
+        if add: open(todo, "w").write(have + "".join(f"- {t} (from {st['id']}, {time.strftime('%Y-%m-%d')})\n" for t in add))
+    return p
+
+def spec_from_staging(st):
+    """The approved staging as a rig spec. A PAUSE folds into its PUNCH: the silence is the punch's pause, and the cut to
+    the centered close moves back to where the silence starts (hold_close below), so the hold and the line share one shot."""
+    spec = {"id": st["id"], "title": st.get("title") or st["id"], "set": st.get("set", "creator_room"),
+            "host": {"robot": st["host"], "pose": st.get("pose", "sit")}, "props": st.get("props") or {"ring_light": True},
+            "strip": st.get("strip") or {"mode": "video", "title": st.get("title") or st["id"]}, "beats": []}
+    if st.get("room"): spec["room"] = st["room"]
+    for k in ("voices", "ending", "endcard"):
+        if st.get(k): spec[k] = st[k]
+    pending = None
+    for b in st["beats"]:
+        if b["kind"] == "PAUSE": pending = float(b["hold"]); continue
+        beat = {"who": "host", "say": b["say"], **{k: b[k] for k in BEAT_KEYS if b.get(k) is not None}}
+        if pending is not None: beat.update({"pause": pending, "shot": "close", "x_hold_close": True}); pending = None
+        spec["beats"].append(beat)
+    return spec
+
+def hold_close(scene_path, beats):
+    """Moves each held punch's cut to its centered close back to the start of its silence (camera, look, lens, focus)."""
+    scene = json.load(open(scene_path)); changed = False
+    for b in beats:
+        if not b.get("x_hold_close"): continue
+        t0 = b["start"]; tp = round(t0 - float(b.get("pause", 0)), 3)
+        tracks = [scene["camera"][k] for k in ("pos", "look", "fov") if k in scene.get("camera", {})] + ([scene["focus"]] if scene.get("focus") else [])
+        for tr in tracks:
+            at = [e for e in tr if abs(e[0] - t0) < 0.0005]
+            if not at: continue
+            before = [e for e in tr if e[0] < tp]
+            keep = [e for e in tr if not (tp - 0.0015 <= e[0] < t0 - 0.0005)]
+            new = ([[round(tp - 0.001, 3), before[-1][1]]] if before else []) + [[tp, at[0][1]]]
+            tr[:] = sorted(keep + new, key=lambda e: e[0]); changed = True
+    if changed: json.dump(scene, open(scene_path, "w"))
+
+def with_holds(mod):
+    """wraps the rig's compiler (from out here) so every compiled scene gets its held punches"""
+    orig = mod.compile_spec
+    if getattr(orig, "_holds", False): return mod
+    def compile_spec(spec, voice_only=False):
+        r = orig(spec, voice_only)
+        if voice_only or not any(b.get("x_hold_close") for b in spec.get("beats") or []): return r
+        hold_close(r[0], orig(spec, True)); return r
+    compile_spec._holds = True; mod.compile_spec = compile_spec
+    return mod
+with_holds(SK)
+import importlib as _il  # standup.py reloads the compiler before each scene; the wrap goes back on after every reload
+_reload = _il.reload
+def _reload_with_holds(m): r = _reload(m); return with_holds(r) if getattr(r, "__name__", "") == "sketch" else r
+_il.reload = _reload_with_holds
 
 def stage_voices(rep):
     """cached takes are copied into this sketch's own work folder, so sketch.py finds them and nothing is voiced again"""
@@ -208,7 +322,7 @@ if __name__ == "__main__":
         print(json.dumps({"rig": RIG, "sets": SETS, "rooms": ROOMS, "cast": CAST, "dog": "Biscuit (props.dog: true, sits on the desk)",
                           "actions": SK.ACTIONS, "lights": SK.LIGHTS, "shots": SK.SHOTS, "host_voices": SK.HOST_VOICE,
                           "strip_modes": ["live", "video", "vlog", "plain"]}, indent=1)); sys.exit()
-    if cmd not in ("check", "card", "preview", "render") or len(sys.argv) < 3: sys.exit(__doc__)
+    if cmd not in ("check", "card", "stage", "spec", "preview", "render") or len(sys.argv) < 3: sys.exit(__doc__)
     spec = json.load(open(os.path.expanduser(sys.argv[2])))
     out = os.path.expanduser(arg("--out", "") or "")
     if cmd == "check":
@@ -219,4 +333,13 @@ if __name__ == "__main__":
         if not r["ok"]: sys.exit("Spec has errors:\n- " + "\n- ".join(r["errors"]))
         os.makedirs(out, exist_ok=True); p = os.path.join(out, "plan.md"); open(p, "w").write(card(spec, r)); print(p); sys.exit()
     if cmd == "preview": print(json.dumps(preview(spec, out), indent=1)); sys.exit()
+    if cmd == "stage": print(stage(spec, out)); sys.exit()
+    if cmd == "spec":
+        errs = stage_check(spec)
+        if errs: sys.exit("Staging has problems:\n- " + "\n- ".join(errs))
+        sp = spec_from_staging(spec); r = check(sp)
+        if not r["ok"]: sys.exit("The spec from this staging has errors:\n- " + "\n- ".join(r["errors"]))
+        os.makedirs(out, exist_ok=True); json.dump(sp, open(os.path.join(out, "spec.json"), "w"), indent=1)
+        json.dump({**spec, "approved": True}, open(os.path.join(out, "staging.json"), "w"), indent=1)
+        p = os.path.join(out, "plan.md"); open(p, "w").write(card(sp, r)); print(p); sys.exit()
     print(render(spec, out, arg("--fmt", "short"), "--allow-new-voices" in sys.argv))

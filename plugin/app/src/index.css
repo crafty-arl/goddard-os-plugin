@@ -1216,3 +1216,21 @@ span.scv-p { cursor: default }
 @keyframes vxpulse { 50% { opacity: .45 } }
 @media (prefers-reduced-motion: reduce) { .vx-bars .now { animation: none } }
 .vx .vp-go { color: #070707 !important; background: #D79B45; border: 0; padding: 12px; border-radius: 99px; font: 700 14px inherit; font-family: inherit; cursor: pointer }
+
+/* the staging card: what we SEE on each beat, before the spec */
+.stg { border: 1px solid #4FA3A5; border-radius: 16px; background: #15130F; padding: 12px; display: flex; flex-direction: column; gap: 10px; margin-top: 12px }
+.stg.ok { border-color: #2C2820 } .stg .eyebrow { color: #4FA3A5 }
+.stg-who { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #CFC9BC } .stg-who img { width: 40px; height: 50px; object-fit: contain; background: #C9C4BA; border-radius: 8px }
+.stg-warn { font-size: 13px; color: #070707; background: #D79B45; padding: 8px 10px; border-radius: 10px }
+.stg ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
+.stg-beat { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; padding: 8px; border-radius: 12px; background: #1D1A15; border: 1px solid #2C2820 }
+.stg-beat .n { font: 700 11px 'Geist Mono', ui-monospace, monospace; color: #9C968A; padding-top: 2px }
+.stg-beat .top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap } .stg-beat .top em { font: 700 9px 'Geist Mono', ui-monospace, monospace; font-style: normal; letter-spacing: .08em; color: #9C968A }
+.stg-beat .top b { font-size: 14px } .stg-beat p { font-size: 13px; color: #CFC9BC; margin: 3px 0 0 }
+.stg-beat .meta { display: flex; gap: 10px; align-items: center; margin-top: 5px; font: 500 10px 'Geist Mono', ui-monospace, monospace; color: #9C968A; flex-wrap: wrap }
+.stg-beat .esc { display: inline-flex; gap: 2px } .stg-beat .esc i { width: 12px; height: 5px; border-radius: 2px; background: #2E2920 } .stg-beat .esc i.on { background: #D79B45 }
+.stg-beat .flag { color: #070707; background: #D79B45; padding: 2px 6px; border-radius: 99px; font-weight: 700 }
+.stg-beat.pause { border-color: #D79B45 } .stg-beat.punch { border-color: #d0604f } .stg-beat.punch .top em { color: #d0604f }
+.stg-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px } .stg-btns button { padding: 12px; border-radius: 99px; font: 700 13px inherit; font-family: inherit; border: 1px solid #2C2820; background: #15130F; color: #F1EEE7; cursor: pointer }
+.stg-btns .go { background: #D79B45 !important; color: #070707 !important; border-color: #D79B45 }
+.vp-tap { position: absolute; inset: 0; z-index: 2; background: transparent; border: 0; cursor: pointer } .vp-play { z-index: 3 }

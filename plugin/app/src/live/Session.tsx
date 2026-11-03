@@ -12,7 +12,7 @@ const docOf = (path: string): Output => ({ kind: 'file', path, type: 'md', name:
 import { linkify } from './ChatPanel'
 import { Attach, Voice, grow } from './dock'
 import { DogScreen, Keys, usesDogComputer } from './DogScreen'
-import { VideoPreview, ExportCard } from './VideoPreview'
+import { VideoPreview, ExportCard, StagingCard } from './VideoPreview'
 import { Talk, rich, grouped, useBionic, setBionic, usePace, setPace, type Pace } from './talk'
 
 const DRAFT = 'goddard.session-draft'
@@ -104,11 +104,13 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
   const [switching, setSwitching] = useState(false)
   // a paper robot video session shows what the dog made right in the talk: the spec card (plan.md) and the video, in
   // the same card and strip Home uses. Other sessions are unchanged.
-  const robot = live.msgs.some(m => m.text.includes('paper-robot') || (m.from === 'assistant' && m.text.includes('Preview it live')))
+  const robot = live.msgs.some(m => m.text.includes('paper-robot') || (m.from === 'assistant' && (m.text.includes('Preview it live') || m.text.includes('/staging.json'))))
   const outs = robot ? findOutputs(msgs.filter(m => m.from === 'assistant').map(m => m.text)) : []
   // the spec card's sketch plays live before it renders; export and changes go back through the dog
   const card = [...outs].reverse().find(o => o.kind === 'file' && /(^|\/)plan\.md$/.test(o.path)) as Extract<Output, { kind: 'file' }> | undefined
   const [preview, setPreview] = useState<string | null>(null)
+  // the staging the dog wrote (the newest staging.json it named), drawn as the staging card above the spec
+  const staging = robot ? [...msgs].reverse().filter(m => m.from === 'assistant').map(m => m.text.match(/(?:~|\/)[^\s`'"]*\/staging\.json/)?.[0]).find(Boolean) : undefined
   const sayRef = useRef<HTMLTextAreaElement>(null)
   const bionic = useBionic(), pace = usePace()
   // Focus mode: one question on the screen, everything else gone, pings held on the door until it ends
@@ -218,6 +220,8 @@ export function SessionView({ thread, onBack, onToast, onView, onContinue }: { t
           {onComputer && <DogScreen busy={live.busy.on} onOpen={() => setScreen(true)} slot={thread.slot} />}
           <div className="sess-msgs" role="log">
             <Talk msgs={msgs} who="the dog" choices={perm ? [] : choices} onPick={say} busy={live.busy.on} note={noteOf} />
+            {staging && <StagingCard path={staging} onApprove={() => say('Looks right → spec')}
+              onChange={() => { setDraft('Change a beat: '); setTimeout(() => sayRef.current?.focus(), 50) }} />}
             {outs.length > 0 && <div className="sess-outs">
               {card && <><button className="vp-open" onClick={() => setPreview(card.path)}>▶ Preview it live</button><span className="vp-hint">Plays in seconds. Nothing renders yet.</span></>}
               {card && <ExportCard plan={card.path} onOpen={path => onView({ kind: 'file', path, type: 'video', name: path.split('/').pop()! })} />}

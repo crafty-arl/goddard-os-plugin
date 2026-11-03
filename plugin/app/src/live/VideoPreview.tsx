@@ -138,6 +138,8 @@ export function VideoPreview({ plan, onClose, onExport, onChange }: { plan: stri
       {err ? <p className="vp-err">{err}</p> : <>
         <div className="vp-stage" onClick={toggle}>
           {frames.map((r, i) => <iframe key={i} ref={r} title={`Scene player ${i + 1}`} className={active === i ? 'on' : ''} />)}
+          {/* the frames would swallow a tap: this clear layer takes it, so a tap pauses and plays */}
+          <button className="vp-tap" aria-label={paused ? 'Play' : 'Pause'} />
           {!m && <span className="vp-wait">Building the scenes…</span>}
           {paused && m && <span className="vp-play" aria-hidden="true">▶</span>}
         </div>
@@ -199,6 +201,49 @@ export function ExportCard({ plan, onOpen }: { plan: string; onOpen: (path: stri
       {p.phase === 'done' && p.mp4 && <button className="vp-go" onClick={() => onOpen(p.mp4!)}>▶ Watch the MP4</button>}
       {p.phase === 'failed' && <small>{p.error}</small>}
       {live && <small>About 45 seconds a scene. The dog messages you when it's done.</small>}
+    </section>
+  )
+}
+
+// The staging card (Carl, 2026-11-02: "the picture has to tell the joke too"): before the spec, one row per beat:
+// the owner's line as they typed it, its kind, what we SEE change, the shot, and how much worse it looks than the last
+// beat (gold bars). Gold tags are moves or props the rig can't do yet. robot.py stage checks the rules; this draws it.
+type StageBeat = { kind: 'SETUP' | 'BUILD' | 'TURN' | 'PAUSE' | 'PUNCH'; say?: string; see: string; shot?: string; esc?: number; hold?: number; new?: string[] }
+type Staging = { id: string; title?: string; host: string; room?: string; lines_from?: string; beats: StageBeat[]; approved?: boolean }
+
+export function StagingCard({ path, onChange, onApprove }: { path: string; onChange: () => void; onApprove: () => void }) {
+  const [st, setSt] = useState<Staging | null>(null)
+  useEffect(() => {
+    let stop = false, timer = 0
+    // read again now and then: Looks right flips it to approved, and a changed beat rewrites it
+    const read = () => fetch(fileUrl(path, Date.now())).then(r => r.ok ? r.json() : null).then(j => { if (!stop) { setSt(j); timer = window.setTimeout(read, 4000) } }, () => { if (!stop) timer = window.setTimeout(read, 6000) })
+    read(); return () => { stop = true; clearTimeout(timer) }
+  }, [path])
+  if (!st) return null
+  const theirs = !st.lines_from || st.lines_from === 'carl' || st.lines_from === 'owner'
+  return (
+    <section className={'stg' + (st.approved ? ' ok' : '')} aria-label="Staging">
+      <span className="eyebrow">Staging · {st.approved ? 'approved' : 'waiting on you'}</span>
+      <div className="stg-who"><img src={`/door/rig/cast/${st.host.toLowerCase()}.png`} alt="" /><span>{st.host} · {st.room ? st.room.replace(/_/g, ' ') : 'his room'} · one robot, one set the whole way</span></div>
+      {!theirs && <p className="stg-warn">These lines came from {st.lines_from!.charAt(0).toUpperCase() + st.lines_from!.slice(1)}, not you. Send me yours and I'll stage those instead.</p>}
+      <ol>
+        {st.beats.map((b, i) => (
+          <li key={i} className={'stg-beat ' + b.kind.toLowerCase()}>
+            <span className="n">{i + 1}</span>
+            <div>
+              <div className="top"><em>{b.kind}</em><b>{b.say ? `“${b.say}”` : '(silence)'}</b></div>
+              <p>{b.see}</p>
+              <div className="meta">
+                {b.shot && <span>🎥 {b.shot === 'close' ? 'close · centered' : b.shot}</span>}
+                <span className="esc" title="how much worse it looks">{[1, 2, 3].map(k => <i key={k} className={(b.esc ?? 0) >= k ? 'on' : ''} />)}</span>
+                {b.kind === 'PAUSE' && <span className="flag">hold {b.hold ?? 1.2} s</span>}
+                {(b.new ?? []).map(t => <span key={t} className="flag">{t}</span>)}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+      {!st.approved && <div className="stg-btns"><button onClick={onChange}>✎ Change a beat</button><button className="go" onClick={onApprove}>Looks right → spec</button></div>}
     </section>
   )
 }

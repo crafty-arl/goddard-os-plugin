@@ -958,7 +958,7 @@ function readOutput(raw: string): Response {
 // --- the paper robot preview: the owner's rig, served read-only so its live player runs inside Goddard OS -------
 // Only the folders the stage itself loads from, only the file types it needs, and only its one page. Same origin as
 // the app on purpose: the preview page drives the player (time, seek, pause) from outside, so the rig stays unedited.
-const RIG_DIRS = ['rig/', 'puppet/node_modules/three/', 'sets3d/', 'props/', 'pipeline/work/']
+const RIG_DIRS = ['rig/', 'puppet/node_modules/three/', 'sets3d/', 'props/', 'pipeline/work/', 'cast/']
 const RIG_TYPES: Record<string, string> = { js: 'text/javascript', mjs: 'text/javascript', json: 'application/json', bin: 'application/octet-stream',
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', wav: 'audio/wav', mp3: 'audio/mpeg' }
 const rigRoot = () => realpathSync(home(profile().rig!.path))
