@@ -3,7 +3,8 @@
 // anything that already exists there goes to Carl as a permission ask (an Allow / No card in Goddard OS).
 // It only ever asks, it never allows or denies on his behalf.
 import { existsSync } from 'node:fs'
-const LACIE = process.env.GODDARD_LACIE ?? '/Volumes/LaCie'
+import { profile } from './profile'
+const LACIE = process.env.GODDARD_LACIE ?? (profile().bigDrive?.on ? profile().bigDrive!.path : '/nonexistent-big-drive')
 const h = JSON.parse(await Bun.stdin.text() || '{}')
 const tool = String(h.tool_name ?? ''), input = h.tool_input ?? {}
 let why = ''

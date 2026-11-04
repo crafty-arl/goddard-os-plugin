@@ -6,7 +6,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node
 import { dirname, join } from 'node:path'
 import { homedir, tmpdir } from 'node:os'
 const h = JSON.parse(await Bun.stdin.text() || '{}')
-const port = process.env.GM_CHAT_PORT
+// a plain session has no port, so its session id names its save points
+const port = process.env.GM_CHAT_PORT ?? String(h.session_id ?? '').slice(0, 8)
 if (!port) process.exit(0)
 const tool = String(h.tool_name ?? ''), input = h.tool_input ?? {}
 const path = String(input.file_path ?? input.notebook_path ?? '')

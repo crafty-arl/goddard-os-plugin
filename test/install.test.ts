@@ -200,7 +200,8 @@ describe('what ships in the plugin', () => {
     e.name === 'node_modules' || e.name === 'dist' ? [] : e.isDirectory() ? files(join(dir, e.name)) : [join(dir, e.name)])
   const all = files(ROOT)
   test('no personal state: passwords, profiles, passkeys, keys or .env files', () => {
-    const bad = all.filter(f => /(^|\/)(password|profile\.json|devices\.json|auth\.json|link\.txt|\.env[^/]*|.*_ed25519.*|.*\.pem|\.mcp\.json)$/.test(f))
+    // the plugin's own .mcp.json is its tool server, and has no keys in it (a .mcp.json anywhere else would be someone's)
+    const bad = all.filter(f => f !== join(ROOT, '.mcp.json') && /(^|\/)(password|profile\.json|devices\.json|auth\.json|link\.txt|\.env[^/]*|.*_ed25519.*|.*\.pem|\.mcp\.json)$/.test(f))
     expect(bad).toEqual([])
   })
   // what's private to the Mac running the tests: its home folder, and the phone address in its own profile

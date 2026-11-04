@@ -9,8 +9,8 @@ import { homedir } from 'node:os'
 import { own, mindDir } from './profile'
 const h = JSON.parse(await Bun.stdin.text() || '{}')
 const port = process.env.GM_CHAT_PORT
-if (!port) process.exit(0)
-const tool = String(h.tool_name ?? ''), input = h.tool_input ?? {}
+// the plugin's copy of these tools goes by a longer name
+const tool = String(h.tool_name ?? '').replace(/^mcp__plugin_goddard-os_goddard__/, 'mcp__gm-chat__'), input = h.tool_input ?? {}
 const cmd = String(input.command ?? '')
 const LIVE: [RegExp, string][] = [
   [/\bgit\s+push\b/, 'push code to GitHub'],
@@ -32,6 +32,8 @@ if (tool === 'mcp__gm-chat__vm_undo') what = `roll the dog computer back to save
 // connector tools that post, publish or send on Carl's behalf (his own chat tools are fine)
 if (!what && tool.startsWith('mcp__') && !/^mcp__(gm-chat|claude-code-remote|hearthbot)__/.test(tool) && /(publish|_post|post_|send|tweet|schedule_post|create_post|share|upload_media|payment|charge)/i.test(tool)) what = `use ${tool.replace(/^mcp__[^_]+__/, '')}`
 if (!what) process.exit(0)
+// a plain session has no card to show, but its owner is right there: Claude Code's own prompt does the job
+if (!port) { console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'ask', permissionDecisionReason: `Go-live check: this would ${what}.` } })); process.exit(0) }
 
 const decide = (d: 'allow' | 'deny', why: string) => { console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: d, permissionDecisionReason: own(why) } })); process.exit(0) }
 // the ready check (keys left in code) runs on the repo this would ship, when there is one

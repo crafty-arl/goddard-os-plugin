@@ -35,7 +35,8 @@ async function bgSessions(): Promise<BgSession[]> {
 const stopBg = (id: string) => Bun.spawn([CLAUDE, 'stop', id], { stdout: 'ignore', stderr: 'ignore' }).exited
 // stop the Claude session behind one gm-chat thread: its background session, or its window's process
 async function stopThread(port: number) {
-  const reg = JSON.parse(readFileSync(join(SESSIONS_DIR, `${port}.json`), 'utf8')) as { pid: number }
+  const reg = JSON.parse(readFileSync(join(SESSIONS_DIR, `${port}.json`), 'utf8')) as { pid: number; plain?: boolean }
+  if (reg.plain) return // a session the owner opened themselves is theirs to close
   const ppid = Number((await new Response(Bun.spawn(['ps', '-o', 'ppid=', '-p', String(reg.pid)]).stdout).text()).trim())
   const bgId = (await bgSessions()).find(a => a.pid === ppid)?.id
   if (bgId) await stopBg(bgId)
@@ -370,6 +371,7 @@ async function launch(port: number, { dir, name, env, args, bg }: Launch, resume
   const all = { GM_CHAT_FIRST: '', GM_CHAT_AUTO_UNTIL: '', GM_CHAT_MODE: '', GM_CHAT_HOME: '', GM_CHAT_BG: '', GM_CHAT_PORT: String(port), GM_CHAT_NAME: name, ...(process.env.GM_CHAT_STATE ? { GM_CHAT_STATE: process.env.GM_CHAT_STATE } : {}), ...env, ...(bg ? { GM_CHAT_BG: '1' } : {}) }
   const mcp = join(LAUNCH_DIR, `${port}-mcp.json`)
   writeFileSync(mcp, JSON.stringify({ mcpServers: { 'gm-chat': { command: 'bun', args: [join(HERE, 'server.ts')], env: all }, ...macBrowser() } }, null, 2), { mode: 0o600 })
+  // the door's sessions carry their own tools and hooks below, so the plugin's plain-session copies stay off in them
   // one hooks file per dog, with its port written in: a background session can run in a pre-warmed process whose
   // environment belongs to another dog, so GM_CHAT_PORT can't be trusted there (Home's steps once went to Scribbles)
   const hooks = join(LAUNCH_DIR, `${port}-hooks.json`)
@@ -381,7 +383,7 @@ async function launch(port: number, { dir, name, env, args, bg }: Launch, resume
   const ship = { hooks: [{ type: 'command', timeout: 1300, command: `GM_CHAT_PORT=${port} GM_CHAT_NAME=${sh(name)} bun ${sh(join(HERE, 'ship-gate.ts'))}` }] }
   const save = { hooks: [{ type: 'command', timeout: 40, command: `GM_CHAT_PORT=${port} GM_CHAT_NAME=${sh(name)} bun ${sh(join(HERE, 'savepoint.ts'))}` }] }
   const gates = name === 'Home' ? [] : [{ matcher: 'Bash|mcp__.*', ...ship }, { matcher: 'Write|Edit|MultiEdit|NotebookEdit|Bash', ...save }]
-  writeFileSync(hooks, JSON.stringify({ hooks: { UserPromptSubmit: [hook], PreToolUse: [{ matcher: '*', ...hook }, { matcher: 'Write|Edit|MultiEdit|NotebookEdit|Bash', ...guard }, ...gates], PostToolUse: [{ matcher: 'Write|Edit|MultiEdit|NotebookEdit|Artifact', ...hook }], Stop: [hook], ...(bg ? { PermissionRequest: [{ matcher: '*', ...permit }] } : {}) } }, null, 2), { mode: 0o600 })
+  writeFileSync(hooks, JSON.stringify({ enabledPlugins: { 'goddard-os@goddard-os': false }, hooks: { UserPromptSubmit: [hook], PreToolUse: [{ matcher: '*', ...hook }, { matcher: 'Write|Edit|MultiEdit|NotebookEdit|Bash', ...guard }, ...gates], PostToolUse: [{ matcher: 'Write|Edit|MultiEdit|NotebookEdit|Artifact', ...hook }], Stop: [hook], ...(bg ? { PermissionRequest: [{ matcher: '*', ...permit }] } : {}) } }, null, 2), { mode: 0o600 })
 
   // every thread can read and write Carl's LaCie drive; deleting or overwriting there asks him first (lacie-guard.ts)
   const lacie = existsSync(LACIE) ? ['--add-dir', LACIE] : []

@@ -1,0 +1,13 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/feed.sh\"" }] }],
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/feed.sh\"" }] },
+      { "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/gate.sh\" lacie-guard.ts" }] },
+      { "matcher": "Bash|mcp__.*", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/gate.sh\" ship-gate.ts" }] },
+      { "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash", "hooks": [{ "type": "command", "timeout": 40, "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/gate.sh\" savepoint.ts" }] }
+    ],
+    "PostToolUse": [{ "matcher": "Write|Edit|MultiEdit|NotebookEdit|Artifact", "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/feed.sh\"" }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/bin/feed.sh\"" }] }]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "goddard": {
+      "command": "sh",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/plain-server.sh"]
+    }
+  }
+}

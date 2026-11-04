@@ -25,13 +25,29 @@ import { DOOR_PORT, HEAD, HOST, SESSIONS_DIR, STATE_DIR, TOKEN, gate, isToken, l
 import { profile, has, own } from './profile'
 
 // Threads take 8788 and up; the front door (door.ts) has 8787.
-const PORT = Number(process.env.GM_CHAT_PORT ?? 8788)
-const NAME = process.env.GM_CHAT_NAME || basename(process.cwd())
+// A plain session is one the owner opened themselves, with the plugin's tool server (GM_CHAT_PLAIN). It takes a port
+// from the top of the thread range and joins the door's list only once it first uses a tool, so a session that never
+// does stays off Home. Its person is at that session, so nothing typed on the page can reach it.
+const PLAIN = process.env.GM_CHAT_PLAIN === '1'
+function plainPort(): number {
+  const taken = new Set(readdirSync(SESSIONS_DIR).map(f => Number(f.split('.')[0])))
+  const start = Math.floor(Math.random() * 50)
+  for (let i = 0; i < 50; i++) {
+    const p = 8850 + (start + i) % 50
+    if (taken.has(p)) continue
+    try { Bun.serve({ port: p, hostname: HOST, fetch: () => new Response() }).stop(true); return p } catch {}
+  }
+  throw new Error('no free port')
+}
+const PORT = PLAIN ? plainPort() : Number(process.env.GM_CHAT_PORT ?? 8788)
+const NAME = PLAIN ? `Claude · ${basename(process.env.CLAUDE_PROJECT_DIR || process.cwd())}` : process.env.GM_CHAT_NAME || basename(process.cwd())
 const ON = process.env.GM_CHAT_SERVER || 'Mac mini'
 const HOME = process.env.GM_CHAT_HOME === '1'
 // the router lane this thread was opened for; slots opened before the router run the default model (Opus), so 'best'
 const MODE = process.env.GM_CHAT_MODE || 'best'
 const SESSION_FILE = join(SESSIONS_DIR, `${PORT}.json`)
+// how a plain session's hooks find this server: they know the session's id, not its port
+const PLAIN_FILE = join(STATE_DIR, 'plain', process.env.CLAUDE_CODE_SESSION_ID || 'none')
 const LINK_FILE = join(STATE_DIR, 'link.txt')
 const DOOR = `http://${lanAddress()}:${DOOR_PORT}/?p=${TOKEN}`
 
@@ -514,12 +530,13 @@ const mcp = new Server(
       tools: {},
       experimental: { 'claude/channel': {}, 'claude/channel/permission': {} },
     },
-    instructions: `Carl reads the GM! chat page on their phone or PC, not this terminal. Anything they should see must go through the reply tool; your transcript never reaches the page.\n\nMessages from the page arrive as <channel source="gm-chat" chat_id="web" message_id="...">. Answer with the reply tool. Keep replies short and plain: one idea per line, the result first. The page already shows a typing bubble and a live list of your tool calls, so don't narrate each step. For a progress note on a long job, use the status tool (one short line); save reply for answers and questions.`,
+    instructions: PLAIN ? `Goddard OS tools. The person is here in this chat, so keep talking to them here. Use these only when they ask to put work on their Goddard OS page or to reach their helpers.` : `Carl reads the GM! chat page on their phone or PC, not this terminal. Anything they should see must go through the reply tool; your transcript never reaches the page.\n\nMessages from the page arrive as <channel source="gm-chat" chat_id="web" message_id="...">. Answer with the reply tool. Keep replies short and plain: one idea per line, the result first. The page already shows a typing bubble and a live list of your tool calls, so don't narrate each step. For a progress note on a long job, use the status tool (one short line); save reply for answers and questions.`,
   },
 )
 
 mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
+  // a plain session before Setup has nothing to connect to
+  tools: PLAIN && !existsSync(join(STATE_DIR, 'profile.json')) ? [] : [
     {
       name: 'reply',
       description: 'Send a message to Carl on the GM! chat page. When you ask them to choose, also pass the options as `choices` (2 to 4 short answers, in their words, e.g. ["Keep it", "Delete it"]); the page shows them as one-tap buttons.',
@@ -591,6 +608,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 mcp.setRequestHandler(CallToolRequestSchema, async req => {
   const args = (req.params.arguments ?? {}) as Record<string, unknown>
+  if (PLAIN) joinDoor()
   switch (req.params.name) {
     case 'reply': {
       const id = nextId()
@@ -607,7 +625,8 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
     case 'plan': {
       const steps = (Array.isArray(args.steps) ? args.steps : []).map(x => short(x, 60)).filter(Boolean).slice(0, 9)
       if (!steps.length) return { content: [{ type: 'text', text: 'give 3 to 7 steps' }] }
-      plan = { steps, now: 0, done: false, at: Date.now(), approved: false }
+      plan = { steps, now: 0, done: false, at: Date.now(), approved: PLAIN ? true : false }
+      if (PLAIN) { broadcast({ type: 'msg', id: nextId(), from: 'assistant', text: 'My plan:\n' + steps.map((x, i) => `${i + 1}. ${x}`).join('\n'), ts: Date.now() }); last = { text: 'Replied', at: Date.now() }; return { content: [{ type: 'text', text: 'Plan shown on the Goddard OS page. Keep going here.' }] } }
       // Carl's rule (2026-10-28): a dog waits for his OK on its plan before it builds
       const pid = nextId(), text = 'My plan:\n' + steps.map((x, i) => `${i + 1}. ${x}`).join('\n') + '\nGo?'
       broadcast({ type: 'msg', id: pid, from: 'assistant', text, ts: Date.now(), choices: ['Go', 'Change the plan'] })
@@ -738,11 +757,20 @@ await mcp.connect(new StdioServerTransport())
 
 // Tell the door this thread is up, and make sure the door itself is running
 // (it outlives this thread on purpose: it's the page Carl keeps open).
-writeFileSync(SESSION_FILE, JSON.stringify({ port: PORT, name: NAME, server: ON, folder: process.cwd(), pid: process.pid, started: Date.now() }), { mode: 0o600 })
-writeFileSync(LINK_FILE, DOOR + '\n', { mode: 0o600 })
-fetch(`http://127.0.0.1:${DOOR_PORT}/ping`, { signal: AbortSignal.timeout(1000) }).catch(() => {
-  Bun.spawn(['bun', join(import.meta.dir, 'door.ts')], { stdio: ['ignore', 'ignore', 'ignore'], env: process.env, detached: true } as any).unref()
-})
+let joined = false
+function joinDoor() {
+  if (joined) return
+  joined = true
+  writeFileSync(SESSION_FILE, JSON.stringify({ port: PORT, name: NAME, server: ON, folder: process.cwd(), pid: process.pid, started: Date.now(), ...(PLAIN ? { plain: true } : {}) }), { mode: 0o600 })
+  if (PLAIN) { mkdirSync(join(STATE_DIR, 'plain'), { recursive: true, mode: 0o700 }); writeFileSync(PLAIN_FILE, String(PORT), { mode: 0o600 }) }
+}
+if (!PLAIN) {
+  joinDoor()
+  writeFileSync(LINK_FILE, DOOR + '\n', { mode: 0o600 })
+  fetch(`http://127.0.0.1:${DOOR_PORT}/ping`, { signal: AbortSignal.timeout(1000) }).catch(() => {
+    Bun.spawn(['bun', join(import.meta.dir, 'door.ts')], { stdio: ['ignore', 'ignore', 'ignore'], env: process.env, detached: true } as any).unref()
+  })
+}
 // A thread started from the door arrives with Carl's first message.
 if (process.env.GM_CHAT_FIRST) history.push({ type: 'msg', id: nextId(), from: 'user', text: process.env.GM_CHAT_FIRST, ts: Date.now() })
 
@@ -751,6 +779,7 @@ if (process.env.GM_CHAT_FIRST) history.push({ type: 'msg', id: nextId(), from: '
 const quit = () => {
   // only remove the registration if it's ours (another thread may own this port)
   try { if (JSON.parse(readFileSync(SESSION_FILE, 'utf8')).pid === process.pid) unlinkSync(SESSION_FILE) } catch {}
+  if (PLAIN && joined) try { if (readFileSync(PLAIN_FILE, 'utf8') === String(PORT)) unlinkSync(PLAIN_FILE) } catch {}
   process.exit(0)
 }
 process.stdin.on('end', quit)
@@ -800,6 +829,7 @@ function autoNext() {
 setInterval(() => { if (auto.on && Date.now() >= auto.until && !busy.on) autoNext() }, 30_000)
 
 function deliver(id: string, text: string, from: 'carl' | 'home' | 'system' = 'carl'): void {
+  if (PLAIN) { broadcast({ type: 'msg', id: nextId(), from: 'assistant', text: 'This session is on the computer it was opened on, so it can only read messages typed there.', ts: Date.now() }); return }
   if (from === 'carl') history.push({ type: 'msg', id, from: 'user', text, ts: Date.now() })
   // one tap on a suggested done condition (or his own) adds it to the board right away; the dog still hears it
   const add = from === 'carl' && board ? text.match(/^Add to done:\s*(.+)$/s)?.[1]?.trim() : undefined

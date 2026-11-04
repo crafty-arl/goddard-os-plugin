@@ -70,6 +70,17 @@ Every session has a mode: **Plan it** (phases, a working sheet, a Done list, and
 (a plain chat), or **Just do it** (straight to work, but anything public still stops for your OK). Screenshots are from a
 demo install with a made-up owner.
 
+## In your own Claude sessions
+
+The plugin also works in Claude sessions you open yourself, not only the ones Goddard OS starts:
+
+- **Go-live check:** a push, a deploy or a post stops and asks you first, in the session.
+- **Big drive:** changing or deleting files that are already on your big drive asks you first.
+- **Save points:** before a session first changes a git repo, its files are saved to a hidden ref, and the branch stays as it was.
+- **Goddard tools:** after Setup, a session can put a plan or a working sheet on your Goddard OS page. It shows up on Home once it uses a tool. Claude Code asks you the first time a session uses one.
+
+Those sessions stay on the computer you opened them on. The phone can watch them, but can't type into them or end them.
+
 ## Needs
 
 - A Mac with Claude Code on a paid plan. Background helpers use your plan's limits fast.
